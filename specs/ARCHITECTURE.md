@@ -183,7 +183,10 @@ specs/
 
 1. ✅ Репозиторий создан.
 2. ✅ `specs/PRD.md`, `specs/ARCHITECTURE.md`.
-3. Скелет `apps/web` + `apps/api` + `prisma/schema.prisma`.
-4. CI/CD: GitHub Actions + Netlify.
-5. Дизайн-система.
-6. Первый модуль — Announcements.
+3. ✅ Скелет `apps/web` (React+Vite) + `apps/api` (NestJS) + `prisma/schema.prisma`.
+4. ✅ CI: GitHub Actions (install → prisma generate → build). Netlify-деплой
+   ещё не подключён (нужен личный Netlify-аккаунт пользователя).
+5. Дизайн-система — не начата, экраны пока без стилей.
+6. ✅ Announcements — первая вертикальная реализация (list + create) через
+   `DataProvider`/`RestApiProvider`, без прав доступа и без дизайн-системы.
+   Остальные модули не начаты.

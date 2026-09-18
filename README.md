@@ -12,18 +12,19 @@ it's built and how complex it is to pick up.
 
 ## Status
 
-Early scaffold — architecture and specs are being written before code.
-See `specs/ARCHITECTURE.md` for current decisions and `specs/PRD.md` for
-scope.
+Scaffolded: `apps/web` (React + Vite), `apps/api` (NestJS), `prisma/schema.prisma`
+(SQL Server), CI on GitHub Actions. No design system yet — screens are
+unstyled until that lands. See `specs/ARCHITECTURE.md` for full decisions
+and `specs/PRD.md` for scope.
 
 ## Modules
 
 | Module | Complexity | Status |
 |---|---|---|
-| Announcements | Simple | Spec pending |
-| Handover | Simple | Spec pending |
-| Admin | Medium | Spec pending |
-| Digital Twin (Photo Plan + Isometric Schema) | High — read its own `README.md` first | Spec pending |
+| Announcements | Simple | First vertical slice built (list + create), unstyled |
+| Handover | Simple | Not started |
+| Admin | Medium | Not started |
+| Digital Twin (Photo Plan + Isometric Schema) | High — read its own `README.md` first | Not started |
 
 ## Stack
 
@@ -32,5 +33,13 @@ dev/demo) · GitHub Actions · Netlify
 
 ## Development
 
-Not yet scaffolded. See `specs/ARCHITECTURE.md`, section "Rollout order",
-for the plan.
+```bash
+npm install
+cp .env.example .env          # then point DATABASE_URL at your own SQL Server/Azure SQL
+cp apps/web/.env.example apps/web/.env
+npx prisma generate --schema=prisma/schema.prisma
+npm run dev:api                # http://localhost:3000
+npm run dev:web                # separate terminal, http://localhost:5173
+```
+
+See `specs/ARCHITECTURE.md`, section "Rollout order", for what's next.
