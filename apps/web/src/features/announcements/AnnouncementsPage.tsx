@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { dataProvider } from '../../lib/provider';
-import { Button, Card, EmptyState, Input, PageHeader, Textarea } from '../../components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, RichTextEditor } from '../../components/ui';
 import type { Announcement } from './types';
 import './AnnouncementsPage.css';
 
@@ -47,9 +47,9 @@ export function AnnouncementsPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
           />
-          <Textarea
+          <RichTextEditor
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={setBody}
             placeholder="What's the announcement?"
           />
           <Button type="submit">Publish</Button>
@@ -72,7 +72,9 @@ export function AnnouncementsPage() {
           <li key={item.id}>
             <Card>
               <h2>{item.title}</h2>
-              <p>{item.body}</p>
+              {/* Tiptap output is our own sanitized rich text — safe to render.
+                  If this ever accepts arbitrary user HTML from elsewhere, sanitize first. */}
+              <div className="announcement-body" dangerouslySetInnerHTML={{ __html: item.body }} />
             </Card>
           </li>
         ))}

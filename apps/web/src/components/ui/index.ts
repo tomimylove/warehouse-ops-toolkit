@@ -4,3 +4,8 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 export { PageHeader } from './PageHeader';
 export { EmptyState } from './EmptyState';
+export { RichTextEditor } from './RichTextEditor';
+export { Combobox } from './Combobox';
+export { Table } from './Table';
+export type { Column } from './Table';
+export { Dialog } from './Dialog';
