@@ -1,16 +1,26 @@
 .ui-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  padding: var(--space-2) var(--space-4);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 7px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: filter 0.1s ease;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
-.ui-button:hover {
-  filter: brightness(0.95);
+.ui-button:active {
+  transform: translateY(1px);
+}
+
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .ui-button:focus-visible {
@@ -21,15 +31,29 @@
 .ui-button--primary {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+  box-shadow: var(--shadow-sm);
+}
+.ui-button--primary:hover {
+  background: var(--color-accent-hover);
 }
 
 .ui-button--secondary {
   background: var(--color-surface);
   color: var(--color-text);
-  border-color: var(--color-border);
+  border-color: var(--color-border-strong);
+}
+.ui-button--secondary:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .ui-button--danger {
+  background: transparent;
+  border-color: var(--color-border-strong);
+  color: var(--color-danger);
+}
+.ui-button--danger:hover {
   background: var(--color-danger);
+  border-color: var(--color-danger);
   color: #fff;
 }

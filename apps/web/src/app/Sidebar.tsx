@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { ChevronsLeft, ChevronsRight, Moon, Sun } from 'lucide-react';
 import { navItems } from './nav';
+import { useTheme } from './useTheme';
 import './Sidebar.css';
 
 const COLLAPSED_KEY = 'sidebar-collapsed';
@@ -10,6 +12,7 @@ export function Sidebar() {
     () => localStorage.getItem(COLLAPSED_KEY) === '1',
   );
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
@@ -17,11 +20,22 @@ export function Sidebar() {
 
   return (
     <nav className={`app-sidebar ${collapsed ? 'is-collapsed' : ''}`}>
-      <div className="app-sidebar__brand">{collapsed ? 'WO' : 'Warehouse Ops'}</div>
+      <div className="app-sidebar__header">
+        {!collapsed && <span className="app-sidebar__brand">Warehouse Ops</span>}
+        <button
+          type="button"
+          className="app-sidebar__icon-btn"
+          onClick={() => setCollapsed((c) => !c)}
+          data-tooltip={collapsed ? 'Expand' : undefined}
+        >
+          {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+        </button>
+      </div>
 
       <ul>
         {navItems.map((item) => {
           const isOpenGroup = item.subNav && location.pathname.startsWith(item.path);
+          const Icon = item.icon;
           return (
             <li key={item.path}>
               <NavLink
@@ -30,7 +44,7 @@ export function Sidebar() {
                 end={item.path === '/'}
                 data-tooltip={collapsed ? item.label : undefined}
               >
-                <span className="app-sidebar__icon">{item.icon ?? item.label[0]}</span>
+                <Icon size={17} strokeWidth={2} className="app-sidebar__icon" />
                 {!collapsed && (
                   <>
                     <span className="app-sidebar__label">{item.label}</span>
@@ -62,11 +76,12 @@ export function Sidebar() {
 
       <button
         type="button"
-        className="app-sidebar__toggle"
-        onClick={() => setCollapsed((c) => !c)}
-        data-tooltip={collapsed ? 'Expand' : undefined}
+        className="app-sidebar__theme-toggle"
+        onClick={toggleTheme}
+        data-tooltip={collapsed ? (theme === 'light' ? 'Dark mode' : 'Light mode') : undefined}
       >
-        {collapsed ? '»' : '« Collapse'}
+        {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+        {!collapsed && <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>}
       </button>
     </nav>
   );

@@ -1,17 +1,23 @@
-/* Design tokens — see specs/DESIGN_SYSTEM.md. Components read only these
-   custom properties, never a literal color/space value. */
+/* Design tokens — see specs/DESIGN_SYSTEM.md. Structured/dense register,
+   ported from the validated FSA-era design (Inter, Jira/Atlassian-adjacent
+   palette) rather than reinvented. Components read only these custom
+   properties, never a literal color/space value. */
 :root {
-  --color-bg: #f5f7f7;
+  --color-bg: #f4f5f7;
   --color-surface: #ffffff;
-  --color-surface-2: #ecefef;
-  --color-border: #d7dbdc;
-  --color-text: #1b2023;
-  --color-text-muted: #5b6469;
-  --color-accent: #2e5eaa;
+  --color-surface-2: #eef0f3;
+  --color-border: #dfe1e6;
+  --color-border-strong: #c1c7d0;
+  --color-text: #172b4d;
+  --color-text-muted: #6b778c;
+
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
   --color-accent-contrast: #ffffff;
-  --color-success: #2e7d5b;
-  --color-warning: #b8860b;
-  --color-danger: #c0392b;
+
+  --color-success: #16a34a;
+  --color-warning: #b25000;
+  --color-danger: #de350b;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -22,39 +28,43 @@
   --space-7: 48px;
 
   --radius-sm: 4px;
-  --radius-md: 8px;
+  --radius-md: 6px;
+  --radius-full: 999px;
 
-  --font-display: 'Archivo', system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --shadow-sm: 0 1px 2px rgba(23, 43, 77, 0.08);
+  --shadow-md: 0 4px 10px rgba(23, 43, 77, 0.1);
+
+  --transition-fast: 120ms ease;
+
+  --font-display: 'Inter', system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, Roboto, Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --color-bg: #14181a;
-    --color-surface: #1d2225;
-    --color-surface-2: #23292c;
-    --color-border: #2e3538;
-    --color-text: #e7ebec;
-    --color-text-muted: #97a1a5;
-    --color-accent: #7fa8ee;
-    --color-accent-contrast: #0f1720;
-    --color-success: #57b98b;
-    --color-warning: #d9a441;
-    --color-danger: #e27060;
-  }
-}
-
+/* Dark theme — toggled explicitly in-app (see ThemeToggle), not driven by
+   prefers-color-scheme. That was a deliberate call on the FSA version after
+   direct feedback and carries over unchanged: OS dark mode elsewhere on a
+   shared/kiosk machine shouldn't silently flip this app too. */
 :root[data-theme='dark'] {
-  --color-bg: #14181a;
-  --color-surface: #1d2225;
-  --color-surface-2: #23292c;
-  --color-border: #2e3538;
-  --color-text: #e7ebec;
-  --color-text-muted: #97a1a5;
-  --color-accent: #7fa8ee;
-  --color-accent-contrast: #0f1720;
-  --color-success: #57b98b;
-  --color-warning: #d9a441;
-  --color-danger: #e27060;
+  color-scheme: dark;
+  --color-bg: #0e1014;
+  --color-surface: #1a1d24;
+  --color-surface-2: #23262f;
+  --color-border: #2b2f3a;
+  --color-border-strong: #3d4250;
+  --color-text: #e7e9ee;
+  --color-text-muted: #9099a8;
+
+  --color-accent: #5b93ff;
+  --color-accent-hover: #7ba5ff;
+  --color-accent-contrast: #0e1014;
+
+  --color-success: #3ddc84;
+  --color-warning: #f0a94e;
+  --color-danger: #ff6b5e;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.5);
 }

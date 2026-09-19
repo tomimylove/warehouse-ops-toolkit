@@ -1,31 +1,66 @@
 .app-sidebar {
-  width: 220px;
+  width: 216px;
   flex-shrink: 0;
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  padding: var(--space-5) var(--space-3);
-  height: 100vh;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-3);
+  height: 100vh;
   position: sticky;
   top: 0;
-  transition: width 0.15s ease;
+  transition: width var(--transition-fast);
 }
 
 .app-sidebar.is-collapsed {
-  width: 64px;
+  width: 56px;
   padding-inline: var(--space-2);
+}
+
+.app-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: 0 var(--space-2);
+}
+
+.is-collapsed .app-sidebar__header {
+  justify-content: center;
+  padding: 0;
 }
 
 .app-sidebar__brand {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 16px;
-  margin-bottom: var(--space-5);
-  padding: 0 var(--space-2);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-sidebar__icon-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.app-sidebar__icon-btn:hover {
+  background: var(--color-bg);
+  color: var(--color-accent);
 }
 
 .app-sidebar ul {
@@ -34,44 +69,39 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 1px;
 }
 
 .app-sidebar a {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: 7px var(--space-2) 7px calc(var(--space-2) - 3px);
   border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
   color: var(--color-text);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
+  white-space: nowrap;
   position: relative;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .is-collapsed a {
   justify-content: center;
-  padding: var(--space-2);
+  padding-left: calc(var(--space-2) - 3px);
+  padding-right: var(--space-2);
 }
 
 .app-sidebar__icon {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--color-surface-2);
+  flex: none;
   color: var(--color-text-muted);
+  transition: color var(--transition-fast);
 }
 
 .app-sidebar a.is-active .app-sidebar__icon {
-  background: var(--color-accent-contrast);
   color: var(--color-accent);
 }
 
@@ -80,16 +110,16 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .app-sidebar a:hover {
-  background: var(--color-surface-2);
+  background: var(--color-bg);
 }
 
 .app-sidebar a.is-active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border-left-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .app-sidebar__soon {
@@ -100,57 +130,67 @@
   color: var(--color-text-muted);
 }
 
-.app-sidebar a.is-active .app-sidebar__soon {
-  color: var(--color-accent-contrast);
-  opacity: 0.75;
-}
-
 .app-sidebar__subnav {
-  margin: var(--space-1) 0 var(--space-1) var(--space-5);
+  margin: 1px 0 1px calc(var(--space-2) - 3px + 24px);
   padding-left: var(--space-2);
   border-left: 1px solid var(--color-border);
 }
 
 .app-sidebar__subnav a {
   font-size: 13px;
-  padding: var(--space-1) var(--space-2);
+  padding: 5px var(--space-2);
 }
 
-.app-sidebar__toggle {
+.app-sidebar__theme-toggle {
   margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   background: none;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: var(--space-2);
   cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
-.app-sidebar__toggle:hover {
-  background: var(--color-surface-2);
+.is-collapsed .app-sidebar__theme-toggle {
+  justify-content: center;
 }
 
-/* Tooltips — collapsed mode only, pure CSS, no JS library. */
+.app-sidebar__theme-toggle:hover {
+  background: var(--color-bg);
+  color: var(--color-accent);
+}
+
+/* Tooltips — collapsed mode only, fixed dark chip regardless of theme
+   (a stable dark-on-dark tooltip reads better than one bound to text
+   tokens, which invert in dark mode and go unreadable). */
 [data-tooltip] {
   position: relative;
 }
 
-.is-collapsed [data-tooltip]:hover::after {
+.is-collapsed [data-tooltip]:hover::after,
+.is-collapsed [data-tooltip]:focus-visible::after {
   content: attr(data-tooltip);
   position: absolute;
-  left: calc(100% + 8px);
+  left: 100%;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--color-text);
-  color: var(--color-bg);
+  margin-left: 10px;
+  background: #23262f;
+  color: #fff;
   font-size: 12px;
+  font-weight: 500;
   font-family: var(--font-body);
-  padding: 4px 8px;
+  padding: 5px 9px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
-  z-index: 20;
+  box-shadow: var(--shadow-md);
+  z-index: 40;
   pointer-events: none;
 }
 
@@ -169,7 +209,7 @@
     flex-wrap: wrap;
   }
 
-  .app-sidebar__toggle {
+  .app-sidebar__theme-toggle {
     display: none;
   }
 }
