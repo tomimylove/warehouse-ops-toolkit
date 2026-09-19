@@ -5,8 +5,7 @@ import { HsePage } from './features/hse/HsePage';
 import { StaffPage } from './features/warehouse/StaffPage';
 import { WeeklyMeetingPage } from './features/warehouse/WeeklyMeetingPage';
 import { DigitalTwinPage } from './features/digital-twin/DigitalTwinPage';
-import { BoardsPage } from './features/projects/BoardsPage';
-import { Ta27Page } from './features/projects/Ta27Page';
+import { ProjectsPage } from './features/projects/ProjectsPage';
 import { PlannerPage } from './features/planner/PlannerPage';
 import { DashboardsPage } from './features/dashboards/DashboardsPage';
 import { KnowledgeBasePage } from './features/knowledge-base/KnowledgeBasePage';
@@ -23,8 +22,7 @@ function App() {
         <Route path="/warehouse/staff" element={<StaffPage />} />
         <Route path="/warehouse/weekly-meeting" element={<WeeklyMeetingPage />} />
         <Route path="/warehouse/digital-twin" element={<DigitalTwinPage />} />
-        <Route path="/projects/boards" element={<BoardsPage />} />
-        <Route path="/projects/ta27" element={<Ta27Page />} />
+        <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/planner" element={<PlannerPage />} />
         <Route path="/dashboards" element={<DashboardsPage />} />
         <Route path="/knowledge-base" element={<KnowledgeBasePage />} />

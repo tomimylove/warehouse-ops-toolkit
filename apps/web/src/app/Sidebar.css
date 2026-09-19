@@ -116,7 +116,8 @@
   transform: rotate(90deg);
 }
 
-.is-collapsed a {
+.is-collapsed a,
+.is-collapsed .app-sidebar__group-toggle {
   justify-content: center;
   padding-left: calc(var(--space-2) - 3px);
   padding-right: var(--space-2);

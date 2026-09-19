@@ -7,8 +7,9 @@ import { BellIcon, SwapIcon, CubeIcon, ShieldIcon } from './icons';
 // Order and grouping mirror the original app's sidebar structure
 // (Inbox was tried and later removed there too — Решение 180):
 // Announcements -> HSE -> Warehouse (Staff, Weekly meeting, Digital
-// twin) -> Projects (Boards, TA27) -> Planner -> Dashboards ->
-// Knowledge base -> Handover -> Links -> Admin (always last).
+// twin) -> Projects -> Planner -> Dashboards -> Knowledge base ->
+// Handover -> Links -> Admin (always last). Projects has no children
+// of its own yet — its old Boards/TA27 split is stale, dropped.
 //
 // Icon type matches lucide-react's component signature so both lucide
 // icons and our custom path icons (./icons.tsx) drop in interchangeably.
@@ -44,16 +45,7 @@ export const navItems: NavItem[] = [
       { path: '/warehouse/digital-twin', label: 'Digital twin' },
     ],
   },
-  {
-    path: '/projects',
-    label: 'Projects',
-    status: 'placeholder',
-    icon: FolderKanban,
-    subNav: [
-      { path: '/projects/boards', label: 'Boards' },
-      { path: '/projects/ta27', label: 'TA27' },
-    ],
-  },
+  { path: '/projects', label: 'Projects', status: 'placeholder', icon: FolderKanban },
   { path: '/planner', label: 'Planner', status: 'placeholder', icon: ListTodo },
   { path: '/dashboards', label: 'Dashboards', status: 'placeholder', icon: LayoutDashboard },
   { path: '/knowledge-base', label: 'Knowledge base', status: 'placeholder', icon: BookOpen },
