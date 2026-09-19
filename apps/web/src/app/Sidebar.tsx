@@ -2,10 +2,20 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
 import { navItems } from './nav';
+import { ChevronRightIcon } from './icons';
 import { useTheme } from './useTheme';
 import './Sidebar.css';
 
 const COLLAPSED_KEY = 'sidebar-collapsed';
+const GROUP_EXPANDED_KEY = 'sidebar-group-expanded';
+
+function loadGroupExpanded(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(GROUP_EXPANDED_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
 
 // "Panel with divider" — the original app's standard sidebar-toggle icon.
 function SidebarToggleIcon() {
@@ -29,12 +39,17 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSED_KEY) === '1',
   );
+  const [groupExpanded, setGroupExpanded] = useState(loadGroupExpanded);
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+
+  useEffect(() => {
+    localStorage.setItem(GROUP_EXPANDED_KEY, JSON.stringify(groupExpanded));
+  }, [groupExpanded]);
 
   return (
     <nav className={`app-sidebar ${collapsed ? 'is-collapsed' : ''}`}>
@@ -52,8 +67,56 @@ export function Sidebar() {
 
       <ul>
         {navItems.map((item) => {
-          const isOpenGroup = item.subNav && location.pathname.startsWith(item.path);
           const Icon = item.icon;
+
+          if (item.subNav) {
+            // A group is a pure expand/collapse toggle, not a route — it
+            // mirrors the original app's nav-group-toggle: highlighted
+            // when one of its children is active, expanded by default
+            // unless the user explicitly collapsed it.
+            const groupActive = item.subNav.some((sub) => location.pathname === sub.path);
+            const expanded = groupExpanded[item.path] ?? true;
+
+            return (
+              <li key={item.path} className="app-sidebar__group">
+                <button
+                  type="button"
+                  className={`app-sidebar__group-toggle ${groupActive ? 'is-active' : ''}`}
+                  onClick={() =>
+                    setGroupExpanded((prev) => ({ ...prev, [item.path]: !expanded }))
+                  }
+                  data-tooltip={collapsed ? item.label : undefined}
+                >
+                  <Icon size={17} strokeWidth={2} className="app-sidebar__icon" />
+                  {!collapsed && (
+                    <>
+                      <span className="app-sidebar__label">{item.label}</span>
+                      <ChevronRightIcon
+                        size={12}
+                        className={`app-sidebar__chevron ${expanded ? 'is-open' : ''}`}
+                      />
+                    </>
+                  )}
+                </button>
+
+                {!collapsed && expanded && (
+                  <ul className="app-sidebar__subnav">
+                    {item.subNav.map((sub) => (
+                      <li key={sub.path}>
+                        <NavLink
+                          to={sub.path}
+                          className={({ isActive }) => (isActive ? 'is-active' : undefined)}
+                        >
+                          <span className="app-sidebar__label">{sub.label}</span>
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          }
+
           return (
             <li key={item.path}>
               <NavLink
@@ -72,21 +135,6 @@ export function Sidebar() {
                   </>
                 )}
               </NavLink>
-
-              {!collapsed && item.subNav && isOpenGroup && (
-                <ul className="app-sidebar__subnav">
-                  {item.subNav.map((sub) => (
-                    <li key={sub.path}>
-                      <NavLink
-                        to={sub.path}
-                        className={({ isActive }) => (isActive ? 'is-active' : undefined)}
-                      >
-                        {sub.label}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </li>
           );
         })}

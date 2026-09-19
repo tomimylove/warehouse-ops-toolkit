@@ -72,7 +72,8 @@
   gap: 1px;
 }
 
-.app-sidebar a {
+.app-sidebar a,
+.app-sidebar__group-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -87,6 +88,32 @@
   position: relative;
   transition: background-color var(--transition-fast), color var(--transition-fast),
     border-color var(--transition-fast);
+}
+
+.app-sidebar__group-toggle {
+  width: 100%;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.app-sidebar__group-toggle.is-active {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border-left-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.app-sidebar__chevron {
+  flex: none;
+  transition: transform var(--transition-fast);
+}
+
+.app-sidebar__chevron.is-open {
+  transform: rotate(90deg);
 }
 
 .is-collapsed a {
@@ -110,7 +137,8 @@
   text-overflow: ellipsis;
 }
 
-.app-sidebar a:hover {
+.app-sidebar a:hover,
+.app-sidebar__group-toggle:hover {
   background: var(--color-bg);
 }
 
@@ -129,14 +157,25 @@
 }
 
 .app-sidebar__subnav {
-  margin: 1px 0 1px calc(var(--space-2) - 3px + 24px);
-  padding-left: var(--space-2);
-  border-left: 1px solid var(--color-border);
+  list-style: none;
+  margin: 1px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
+/* Indent = parent icon width + gap, so the child's label lines up under
+   the parent's label (same formula as the original app). */
 .app-sidebar__subnav a {
   font-size: 12.5px;
-  padding: 5px var(--space-2);
+  padding: 7px var(--space-2) 7px calc(var(--space-2) - 3px + 24px);
+}
+
+.app-sidebar__subnav a.is-active {
+  background: none;
+  border-left-color: transparent;
+  color: var(--color-accent);
 }
 
 .app-sidebar__theme-toggle {
