@@ -46,4 +46,10 @@ npm run dev:api                # http://localhost:3000
 npm run dev:web                # separate terminal, http://localhost:5173
 ```
 
+Leave both `dev:api` and `dev:web` running — they hot-reload on file changes,
+no restart needed. To pull the latest code later, run `update.bat` (Windows,
+double-click or run in a terminal) — it does `git pull` + `npm install` in
+one go. `npm install` is a no-op if nothing changed, so it's always safe to
+run.
+
 See `specs/ARCHITECTURE.md`, section "Rollout order", for what's next.
