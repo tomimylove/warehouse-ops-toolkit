@@ -1,11 +1,34 @@
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import './RichTextEditor.css';
+import { cn } from '@/lib/utils';
 
 interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+}
+
+function ToolbarButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-sm px-2 py-0.5 font-mono text-xs',
+        active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
 // Minimal rich-text field: bold/italic/lists/links — enough for an
@@ -17,40 +40,33 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     content: value,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: 'rich-text-editor__content' },
+      attributes: { class: 'min-h-[100px] px-3 py-2 outline-none text-sm [&_p]:m-0 [&_p]:mb-2' },
     },
   });
 
   if (!editor) return null;
 
   return (
-    <div className="rich-text-editor">
-      <div className="rich-text-editor__toolbar">
-        <button
-          type="button"
-          className={editor.isActive('bold') ? 'is-active' : ''}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        >
+    <div className="border-input bg-transparent relative rounded-md border shadow-xs">
+      <div className="border-input flex gap-1 border-b px-2 py-1">
+        <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
           B
-        </button>
-        <button
-          type="button"
-          className={editor.isActive('italic') ? 'is-active' : ''}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        >
+        </ToolbarButton>
+        <ToolbarButton active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
           I
-        </button>
-        <button
-          type="button"
-          className={editor.isActive('bulletList') ? 'is-active' : ''}
+        </ToolbarButton>
+        <ToolbarButton
+          active={editor.isActive('bulletList')}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
         >
           • List
-        </button>
+        </ToolbarButton>
       </div>
       <EditorContent editor={editor} />
       {editor.isEmpty && placeholder && (
-        <span className="rich-text-editor__placeholder">{placeholder}</span>
+        <span className="text-muted-foreground pointer-events-none absolute top-11 left-3 text-sm">
+          {placeholder}
+        </span>
       )}
     </div>
   );

@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
-import './PageHeader.css';
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: ReactNode }) {
   return (
-    <div className="ui-page-header">
-      <h1>{title}</h1>
-      {subtitle && <p>{subtitle}</p>}
+    <div className="mb-6 space-y-1">
+      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
     </div>
   );
 }

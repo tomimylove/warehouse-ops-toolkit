@@ -1,11 +1,8 @@
-export { Button } from './Button';
-export { Input, Textarea } from './Field';
-export { Card } from './Card';
-export { Badge } from './Badge';
+export { Button } from './button';
+export { Input } from './input';
+export { Textarea } from './textarea';
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './card';
+export { Badge } from './badge';
 export { PageHeader } from './PageHeader';
 export { EmptyState } from './EmptyState';
 export { RichTextEditor } from './RichTextEditor';
-export { Combobox } from './Combobox';
-export { Table } from './Table';
-export type { Column } from './Table';
-export { Dialog } from './Dialog';
