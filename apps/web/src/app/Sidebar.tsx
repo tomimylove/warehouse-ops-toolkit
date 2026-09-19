@@ -1,11 +1,29 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronsLeft, ChevronsRight, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { navItems } from './nav';
 import { useTheme } from './useTheme';
 import './Sidebar.css';
 
 const COLLAPSED_KEY = 'sidebar-collapsed';
+
+// "Panel with divider" — the original app's standard sidebar-toggle icon.
+function SidebarToggleIcon() {
+  return (
+    <svg
+      width={15}
+      height={15}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 3h18v18H3z M9 3v18" />
+    </svg>
+  );
+}
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(
@@ -28,7 +46,7 @@ export function Sidebar() {
           onClick={() => setCollapsed((c) => !c)}
           data-tooltip={collapsed ? 'Expand' : undefined}
         >
-          {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+          <SidebarToggleIcon />
         </button>
       </div>
 

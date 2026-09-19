@@ -97,8 +97,6 @@
 
 .app-sidebar__icon {
   flex: none;
-  color: var(--color-text-muted);
-  transition: color var(--transition-fast);
 }
 
 .app-sidebar a.is-active .app-sidebar__icon {
