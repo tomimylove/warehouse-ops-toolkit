@@ -42,3 +42,9 @@ p {
 a {
   color: var(--color-accent);
 }
+
+.module-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}

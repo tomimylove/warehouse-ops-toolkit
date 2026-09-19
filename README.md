@@ -20,12 +20,15 @@ scope.
 
 ## Modules
 
+Sidebar navigation is in place (`apps/web/src/app/`) — every module below has
+a route, even if it's just a placeholder screen.
+
 | Module | Complexity | Status |
 |---|---|---|
-| Announcements | Simple | First vertical slice built (list + create), on the design system |
-| Handover | Simple | Not started |
-| Admin | Medium | Not started |
-| Digital Twin (Photo Plan + Isometric Schema) | High — read its own `README.md` first | Not started |
+| Announcements | Simple | Rich text (Tiptap), list + create. Comments/reactions/attachments/stories/widgets planned, not built yet |
+| Handover | Simple | Placeholder route only |
+| Admin | Medium | Placeholder route only |
+| Digital Twin (Photo Plan + Isometric Schema) | High — read its own `README.md` first | Placeholder route only |
 
 ## Stack
 
