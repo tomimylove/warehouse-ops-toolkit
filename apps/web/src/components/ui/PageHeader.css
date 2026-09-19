@@ -1,0 +1,8 @@
+.ui-page-header {
+  margin-bottom: var(--space-5);
+}
+
+.ui-page-header p {
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}

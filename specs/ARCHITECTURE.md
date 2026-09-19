@@ -186,7 +186,10 @@ specs/
 3. ✅ Скелет `apps/web` (React+Vite) + `apps/api` (NestJS) + `prisma/schema.prisma`.
 4. ✅ CI: GitHub Actions (install → prisma generate → build). Netlify-деплой
    ещё не подключён (нужен личный Netlify-аккаунт пользователя).
-5. Дизайн-система — не начата, экраны пока без стилей.
+5. ✅ Дизайн-система — токены (цвет/шрифт/отступы), светлая+тёмная тема,
+   базовые компоненты (`Button`, `Input`/`Textarea`, `Card`, `Badge`,
+   `PageHeader`, `EmptyState`) в `apps/web/src/components/ui/`. Announcements
+   переведён на неё.
 6. ✅ Announcements — первая вертикальная реализация (list + create) через
    `DataProvider`/`RestApiProvider`, без прав доступа и без дизайн-системы.
    Остальные модули не начаты.

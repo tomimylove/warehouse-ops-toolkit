@@ -1,0 +1,60 @@
+/* Design tokens — see specs/DESIGN_SYSTEM.md. Components read only these
+   custom properties, never a literal color/space value. */
+:root {
+  --color-bg: #f5f7f7;
+  --color-surface: #ffffff;
+  --color-surface-2: #ecefef;
+  --color-border: #d7dbdc;
+  --color-text: #1b2023;
+  --color-text-muted: #5b6469;
+  --color-accent: #2e5eaa;
+  --color-accent-contrast: #ffffff;
+  --color-success: #2e7d5b;
+  --color-warning: #b8860b;
+  --color-danger: #c0392b;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #14181a;
+    --color-surface: #1d2225;
+    --color-surface-2: #23292c;
+    --color-border: #2e3538;
+    --color-text: #e7ebec;
+    --color-text-muted: #97a1a5;
+    --color-accent: #7fa8ee;
+    --color-accent-contrast: #0f1720;
+    --color-success: #57b98b;
+    --color-warning: #d9a441;
+    --color-danger: #e27060;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #14181a;
+  --color-surface: #1d2225;
+  --color-surface-2: #23292c;
+  --color-border: #2e3538;
+  --color-text: #e7ebec;
+  --color-text-muted: #97a1a5;
+  --color-accent: #7fa8ee;
+  --color-accent-contrast: #0f1720;
+  --color-success: #57b98b;
+  --color-warning: #d9a441;
+  --color-danger: #e27060;
+}

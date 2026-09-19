@@ -13,15 +13,16 @@ it's built and how complex it is to pick up.
 ## Status
 
 Scaffolded: `apps/web` (React + Vite), `apps/api` (NestJS), `prisma/schema.prisma`
-(SQL Server), CI on GitHub Actions. No design system yet — screens are
-unstyled until that lands. See `specs/ARCHITECTURE.md` for full decisions
-and `specs/PRD.md` for scope.
+(SQL Server), CI on GitHub Actions, and a design system (tokens + base
+components, light/dark). See `specs/ARCHITECTURE.md` for full decisions,
+`specs/DESIGN_SYSTEM.md` for the visual language, and `specs/PRD.md` for
+scope.
 
 ## Modules
 
 | Module | Complexity | Status |
 |---|---|---|
-| Announcements | Simple | First vertical slice built (list + create), unstyled |
+| Announcements | Simple | First vertical slice built (list + create), on the design system |
 | Handover | Simple | Not started |
 | Admin | Medium | Not started |
 | Digital Twin (Photo Plan + Isometric Schema) | High — read its own `README.md` first | Not started |

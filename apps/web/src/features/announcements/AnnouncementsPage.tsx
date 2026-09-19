@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { dataProvider } from '../../lib/provider';
+import { Button, Card, EmptyState, Input, PageHeader, Textarea } from '../../components/ui';
 import type { Announcement } from './types';
+import './AnnouncementsPage.css';
 
 export function AnnouncementsPage() {
   const [items, setItems] = useState<Announcement[]>([]);
@@ -35,31 +37,43 @@ export function AnnouncementsPage() {
   }
 
   return (
-    <section>
-      <h1>Announcements</h1>
+    <section className="announcements-page">
+      <PageHeader title="Announcements" subtitle="What the team needs to know, in one place." />
 
-      <form onSubmit={handleSubmit}>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title"
-        />
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="What's the announcement?"
-        />
-        <button type="submit">Publish</button>
-      </form>
+      <Card className="announcements-form">
+        <form onSubmit={handleSubmit}>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title"
+          />
+          <Textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="What's the announcement?"
+          />
+          <Button type="submit">Publish</Button>
+        </form>
+      </Card>
 
       {loading && <p>Loading…</p>}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="announcements-error">
+          {error}
+        </p>
+      )}
 
-      <ul>
+      {!loading && !error && items.length === 0 && (
+        <EmptyState message="No announcements yet — publish the first one above." />
+      )}
+
+      <ul className="announcements-list">
         {items.map((item) => (
           <li key={item.id}>
-            <strong>{item.title}</strong>
-            <p>{item.body}</p>
+            <Card>
+              <h2>{item.title}</h2>
+              <p>{item.body}</p>
+            </Card>
           </li>
         ))}
       </ul>
