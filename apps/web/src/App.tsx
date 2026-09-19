@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { AnnouncementsPage } from './features/announcements/AnnouncementsPage';
 import { DesignComparisonPage } from './features/design-comparison/DesignComparisonPage';
 
@@ -5,7 +6,15 @@ import { DesignComparisonPage } from './features/design-comparison/DesignCompari
 // hatch to view the Fluent UI vs custom design system comparison.
 // Remove this branch once that decision is made.
 function App() {
-  const isComparison = window.location.hash === '#compare';
+  const [hash, setHash] = useState(window.location.hash);
+
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const isComparison = hash === '#compare';
 
   return <main>{isComparison ? <DesignComparisonPage /> : <AnnouncementsPage />}</main>;
 }
