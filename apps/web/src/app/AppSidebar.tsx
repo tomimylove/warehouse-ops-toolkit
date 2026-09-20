@@ -18,10 +18,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { navItems } from './nav';
 import { useTheme } from './useTheme';
+import { usePermissions } from './PermissionsContext';
 
 export function AppSidebar() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { has, loading } = usePermissions();
+  // Nothing renders as "missing" while /me is still in flight — an item
+  // pops in once allowed, it never flashes and then disappears.
+  const visibleItems = loading ? [] : navItems.filter((item) => has(item.permission));
 
   return (
     <Sidebar collapsible="icon">
@@ -44,7 +49,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {visibleItems.map((item) => {
                 const Icon = item.icon;
 
                 if (item.subNav) {

@@ -186,10 +186,50 @@ specs/
 3. ✅ Скелет `apps/web` (React+Vite) + `apps/api` (NestJS) + `prisma/schema.prisma`.
 4. ✅ CI: GitHub Actions (install → prisma generate → build). Netlify-деплой
    ещё не подключён (нужен личный Netlify-аккаунт пользователя).
-5. ✅ Дизайн-система — токены (цвет/шрифт/отступы), светлая+тёмная тема,
-   базовые компоненты (`Button`, `Input`/`Textarea`, `Card`, `Badge`,
-   `PageHeader`, `EmptyState`) в `apps/web/src/components/ui/`. Announcements
-   переведён на неё.
-6. ✅ Announcements — первая вертикальная реализация (list + create) через
-   `DataProvider`/`RestApiProvider`, без прав доступа и без дизайн-системы.
-   Остальные модули не начаты.
+5. ✅ Дизайн-система — сначала своя (Jira-style, портирована из FSA), затем
+   заменена на shadcn/ui (Tailwind + Radix, тема Nova) — см.
+   `specs/DESIGN_SYSTEM.md`, там же причина смены. Сайдбар — на
+   `Sidebar`/`Collapsible` из shadcn, структура и группировка пунктов меню
+   из FSA-истории.
+6. ✅ Core: гранулярный RBAC (`User`/`Role`/`RolePermission`, ключи вида
+   `"announcements:create"`, без фиксированных admin/editor/reader) — см.
+   раздел 11. Пока без реальной аутентификации: `CurrentUserService`
+   резолвит захардкоженного dev-юзера, тот же контракт (`GET /me`), что
+   будет после подключения Azure AD.
+7. ✅ Announcements — list + create + edit + delete + pin/sort, каждое
+   действие за своим permission-ключом, и на фронте (скрытие UI/роута), и
+   на бэке (`PermissionsGuard`, реальная граница безопасности). Вложения/
+   комментарии/история/видимость по командам/read-state — отложены, ждут
+   своих Core-примитивов (см. `apps/web/src/features/announcements/README.md`).
+   Остальные модули — только placeholder-страницы за `<module>:view`.
+
+## 11. Права доступа — гранулярный RBAC, не admin/editor/reader
+
+По прямому запросу — фиксированные роли-уровни (admin/editor/reader,
+FSA-наследие) отклонены. Вместо них:
+
+- `Role` — просто именованный набор ключей-разрешений (`RolePermission`).
+  Ключ — свободная строка `"<module>:<action>"` (`"announcements:pin"`,
+  `"hse:edit"` и т.д.), не enum — новое разрешение добавляется сидом
+  данных, не миграцией схемы.
+- `User` привязан к ровно одной `Role`. Реальный пользователь — любой
+  Azure AD аккаунт (когда подключим аутентификацию); привязка роли —
+  ручная, через будущий Admin-модуль.
+- **Отсутствие разрешения — не просто скрытая кнопка.** Нет
+  `"<module>:view"` → пункт меню не показывается (`apps/web/src/app/
+  AppSidebar.tsx`) И прямой переход по URL блокируется тем же ключом
+  (`RequirePermission` вокруг каждого `<Route>` в `App.tsx`). Проверка на
+  бэкенде (`PermissionsGuard` + `@RequirePermission()`) — обязательна для
+  каждого мутирующего эндпоинта, фронтовая проверка — только UX, не
+  граница безопасности.
+- Действие внутри одного эндпоинта может требовать сразу двух ключей —
+  например, `PATCH /announcements/:id` проверяет `announcements:edit`
+  через guard и дополнительно `announcements:pin`, если меняется именно
+  `pinned` (см. `AnnouncementsController.update()`) — редактировать текст
+  и закреплять анонс для всех может быть разными правами.
+- До подключения Azure AD — `CurrentUserService` всегда резолвит одного
+  захардкоженного dev-юзера (`prisma/seed.ts`, роль "Administrator" со
+  всеми текущими ключами). Контракт (`GET /me` → `{id, email, name,
+  permissions}`) уже реальный — подключение Azure AD меняет только то,
+  как `CurrentUserService` находит пользователя, не сам контракт и не
+  что-либо на фронте.

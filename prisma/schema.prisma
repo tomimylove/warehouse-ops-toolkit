@@ -11,9 +11,49 @@ model Announcement {
   id        String   @id @default(cuid())
   title     String   @db.NVarChar(200)
   body      String   @db.NVarChar(Max)
+  pinned    Boolean  @default(false)
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("Announcements")
+}
+
+// Granular RBAC — no fixed admin/editor/reader tiers. A Role is just a
+// named bundle of permission keys ("announcements:create", "hse:edit", ...);
+// a module ships new keys as it's built, never a schema change here. A user
+// with no matching key for a module doesn't just lose its buttons — the
+// sidebar entry and the route itself are both gated (see apps/web
+// usePermissions()/RequirePermission), not merely hidden UI.
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("Users")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("Roles")
+}
+
+// One row per granted permission key — deliberately a flat string, not an
+// enum: adding a permission for a new module is a data seed, not a
+// migration. "<module>:<action>" convention (e.g. "announcements:pin").
+model RolePermission {
+  id     String @id @default(cuid())
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  key    String
+
+  @@unique([roleId, key])
+  @@map("RolePermissions")
 }
