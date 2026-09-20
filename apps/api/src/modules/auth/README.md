@@ -11,11 +11,18 @@ security boundary.
 
 ## Pieces
 
+- `UsersService.findOrCreateByEmail(email, name)` — any email never seen
+  before is created on the spot, assigned whichever `Role` has
+  `isDefault: true` ("Default", seeded by `prisma/seed.ts`). Nobody is ever
+  left without a role. An admin can move a user to a different role later
+  (future Admin UI does a plain `User.roleId` update — no code change
+  needed here for that).
 - `CurrentUserService.get()` — the one seam between "who's calling" and
-  everything else. Today it always resolves the seeded dev user
-  (`dev@warehouse-ops.local`); swapping in real Azure AD later means
-  changing only this method's body (validate the token, look up `User` by
-  its email claim) — no controller or guard changes.
+  everything else. Today it always resolves through
+  `findOrCreateByEmail('dev@warehouse-ops.local', ...)`; swapping in real
+  Azure AD later means changing only this method's body (validate the
+  token, pass its email claim to the same `findOrCreateByEmail`) — no
+  controller, guard, or default-role logic changes.
 - `RequirePermission(key)` — decorator, marks a controller method with the
   permission key it needs.
 - `PermissionsGuard` — reads that metadata, checks it against
@@ -23,6 +30,16 @@ security boundary.
   missing. Apply with `@UseGuards(PermissionsGuard)` on the controller.
 - `GET /me` — returns `{ id, email, name, permissions }` for the frontend's
   `PermissionsContext`.
+
+## The Default role
+
+Seeded by `prisma/seed.ts` (`Role.isDefault: true`), starts with just
+`announcements:view`. It's an ordinary, editable role — rename it or change
+its permission set from the (future) Admin UI, same as any other role; the
+only special behavior tied to `isDefault` is that `findOrCreateByEmail`
+hands it to brand-new users. Exactly one role should carry `isDefault:
+true` at a time — nothing in the DB enforces that today, it's on whoever
+edits roles later to keep it that way.
 
 ## Adding a permission-gated action to a module
 

@@ -39,6 +39,13 @@ model User {
 model Role {
   id          String           @id @default(cuid())
   name        String           @unique
+  // The role newly-seen users are assigned automatically (see
+  // UsersService.findOrCreateByEmail) — editable like any other role
+  // (rename it, change its permissions), just never deleted while it
+  // holds this flag. Exactly one row should have it true; enforced in
+  // UsersService/seed, not a DB constraint (SQL Server has no partial
+  // unique index in the free tier setup we're targeting).
+  isDefault   Boolean          @default(false)
   users       User[]
   permissions RolePermission[]
 

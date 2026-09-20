@@ -27,6 +27,12 @@ const ALL_PERMISSIONS = [
   'admin:view',
 ];
 
+// What a brand-new user can do before anyone hand-picks them a better role
+// — kept intentionally small; widen it from the (future) Admin UI, not by
+// editing this list, once there's a real opinion about what "everyone"
+// should see by default.
+const DEFAULT_ROLE_PERMISSIONS = ['announcements:view'];
+
 async function main() {
   const admin = await prisma.role.upsert({
     where: { name: 'Administrator' },
@@ -42,8 +48,28 @@ async function main() {
     });
   }
 
+  // The role UsersService.findOrCreateByEmail hands to any user it has
+  // never seen before — editable (rename it, change its permissions)
+  // like any other role, just keep isDefault true on exactly one of them.
+  const defaultRole = await prisma.role.upsert({
+    where: { name: 'Default' },
+    update: { isDefault: true },
+    create: { name: 'Default', isDefault: true },
+  });
+
+  for (const key of DEFAULT_ROLE_PERMISSIONS) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_key: { roleId: defaultRole.id, key } },
+      update: {},
+      create: { roleId: defaultRole.id, key },
+    });
+  }
+
   // Stand-in for the signed-in user until real Azure AD auth lands —
-  // CurrentUserService always resolves this one for now.
+  // CurrentUserService always resolves this one for now. Deliberately
+  // seeded straight onto Administrator, bypassing the Default-role
+  // auto-provisioning every other user gets — this is the one bootstrap
+  // account, not a new hire.
   await prisma.user.upsert({
     where: { email: 'dev@warehouse-ops.local' },
     update: { roleId: admin.id },
