@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { navItems } from './nav';
 import { useTheme } from './useTheme';
 import { usePermissions } from './PermissionsContext';
+import { QuickNotesButton } from '../features/tasks/QuickNotes';
 
 export function AppSidebar() {
   const location = useLocation();
@@ -112,6 +113,7 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          {has('tasks:view') && <QuickNotesButton />}
           <SidebarMenuItem>
             <SidebarMenuButton onClick={toggleTheme} tooltip={theme === 'light' ? 'Dark mode' : 'Light mode'}>
               {theme === 'light' ? <Moon /> : <Sun />}

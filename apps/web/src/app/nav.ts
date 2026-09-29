@@ -1,25 +1,23 @@
 import {
   Megaphone,
-  ShieldAlert,
-  Warehouse,
-  FolderKanban,
-  ListTodo,
-  LayoutDashboard,
+  Boxes,
+  ListChecks,
   BookOpen,
-  Repeat,
-  Link2,
+  UserRound,
   Shield,
   type LucideIcon,
 } from 'lucide-react';
 
 // Single source of truth for the sidebar — a module shows up here once
 // it has at least a placeholder route, whether or not it's built yet.
-// Order and grouping mirror the original app's sidebar structure
-// (Inbox was tried and later removed there too — Решение 180):
-// Announcements -> HSE -> Warehouse (Staff, Weekly meeting, Digital
-// twin) -> Projects -> Planner -> Dashboards -> Knowledge base ->
-// Handover -> Links -> Admin (always last). Projects has no children
-// of its own yet — its old Boards/TA27 split is stale, dropped.
+//
+// Navigation 2.0 (specs/ARCHITECTURE.md, раздел 12) — YouGile-inspired
+// restructure: Announcements -> Operations (HSE, Staff, Weekly meeting,
+// Digital twin, Dashboards, Links) -> Tasks (replaces Projects+Planner)
+// -> Knowledge base -> Profile (Handover lives inside it, not its own
+// sidebar entry) -> Admin (always last). Notes is deliberately NOT here —
+// it opens from the quick-note button in the sidebar footer as a Sheet,
+// not a route.
 //
 // Every item carries the permission key that must be present for it to
 // show at all — this is not just a UI nicety: RequirePermission blocks
@@ -45,28 +43,22 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { path: '/', label: 'Announcements', status: 'ready', icon: Megaphone, permission: 'announcements:view' },
-  { path: '/hse', label: 'HSE', status: 'placeholder', icon: ShieldAlert, permission: 'hse:view' },
   {
-    path: '/warehouse',
-    label: 'Warehouse',
+    path: '/operations',
+    label: 'Operations',
     status: 'placeholder',
-    icon: Warehouse,
-    permission: 'warehouse:view',
+    icon: Boxes,
+    permission: 'operations:view',
     subNav: [
-      { path: '/warehouse/staff', label: 'Staff' },
-      { path: '/warehouse/weekly-meeting', label: 'Weekly meeting' },
-      { path: '/warehouse/digital-twin', label: 'Digital twin' },
+      { path: '/operations/hse', label: 'HSE' },
+      { path: '/operations/staff', label: 'Staff' },
+      { path: '/operations/weekly-meeting', label: 'Weekly meeting' },
+      { path: '/operations/digital-twin', label: 'Digital twin' },
+      { path: '/operations/dashboards', label: 'Dashboards' },
+      { path: '/operations/links', label: 'Links' },
     ],
   },
-  { path: '/projects', label: 'Projects', status: 'placeholder', icon: FolderKanban, permission: 'projects:view' },
-  { path: '/planner', label: 'Planner', status: 'placeholder', icon: ListTodo, permission: 'planner:view' },
-  {
-    path: '/dashboards',
-    label: 'Dashboards',
-    status: 'placeholder',
-    icon: LayoutDashboard,
-    permission: 'dashboards:view',
-  },
+  { path: '/tasks', label: 'Tasks', status: 'placeholder', icon: ListChecks, permission: 'tasks:view' },
   {
     path: '/knowledge-base',
     label: 'Knowledge base',
@@ -74,7 +66,6 @@ export const navItems: NavItem[] = [
     icon: BookOpen,
     permission: 'knowledge-base:view',
   },
-  { path: '/handover', label: 'Handover', status: 'placeholder', icon: Repeat, permission: 'handover:view' },
-  { path: '/links', label: 'Links', status: 'placeholder', icon: Link2, permission: 'links:view' },
+  { path: '/profile', label: 'Profile', status: 'placeholder', icon: UserRound, permission: 'profile:view' },
   { path: '/admin', label: 'Admin', status: 'placeholder', icon: Shield, permission: 'admin:view' },
 ];

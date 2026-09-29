@@ -21,14 +21,19 @@ scope.
 ## Modules
 
 Sidebar navigation is in place (`apps/web/src/app/`) — every module below has
-a route, even if it's just a placeholder screen.
+a route, even if it's just a placeholder screen. Navigation 2.0
+(`specs/ARCHITECTURE.md`, раздел 12) restructured the sidebar around a
+YouGile-inspired Tasks model — Projects/Planner/HSE/Dashboards/Links/Handover
+are no longer separate top-level entries.
 
 | Module | Complexity | Status |
 |---|---|---|
-| Announcements | Simple | Rich text (Tiptap), list + create. Comments/reactions/attachments/stories/widgets planned, not built yet |
-| Handover | Simple | Placeholder route only |
+| Announcements | Simple | Rich text (Tiptap), list + create/edit/delete/pin, RBAC-gated. Comments/attachments/stories/widgets/EntityDrawer planned, not built yet |
+| Operations (HSE, Staff, Weekly meeting, Digital twin, Dashboards, Links) | High — Digital Twin especially, read its own `README.md` first once it exists | Placeholder route only |
+| Tasks (replaces Projects + Planner) | High | Placeholder route only — `Project → Board (tabs) → Column → Task` model, not built |
+| Knowledge base | Medium | Placeholder route only |
+| Profile (personal hub — my tasks, Handover, activity) | Medium | Placeholder route only |
 | Admin | Medium | Placeholder route only |
-| Digital Twin (Photo Plan + Isometric Schema) | High — read its own `README.md` first | Placeholder route only |
 
 ## Stack
 

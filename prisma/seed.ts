@@ -16,22 +16,24 @@ const ALL_PERMISSIONS = [
   'announcements:pin',
   // Everything else is a placeholder page today — just a view key each,
   // until the module is actually built and needs finer-grained actions.
-  'hse:view',
-  'warehouse:view',
-  'projects:view',
-  'planner:view',
-  'dashboards:view',
+  // Navigation 2.0 (specs/ARCHITECTURE.md, раздел 12): HSE/Staff/Weekly
+  // meeting/Digital twin/Dashboards/Links live under one Operations gate;
+  // Projects+Planner are replaced by Tasks; Handover folds into Profile
+  // instead of having its own key.
+  'operations:view',
+  'tasks:view',
   'knowledge-base:view',
-  'handover:view',
-  'links:view',
+  'profile:view',
   'admin:view',
 ];
 
 // What a brand-new user can do before anyone hand-picks them a better role
 // — kept intentionally small; widen it from the (future) Admin UI, not by
 // editing this list, once there's a real opinion about what "everyone"
-// should see by default.
-const DEFAULT_ROLE_PERMISSIONS = ['announcements:view'];
+// should see by default. Profile/Tasks are in here because they're where
+// personal notes and one's own work hub live — not optional for a
+// functioning account the way HSE or Admin are.
+const DEFAULT_ROLE_PERMISSIONS = ['announcements:view', 'tasks:view', 'profile:view'];
 
 async function main() {
   const admin = await prisma.role.upsert({
