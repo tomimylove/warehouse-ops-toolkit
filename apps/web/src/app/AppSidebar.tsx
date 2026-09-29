@@ -14,6 +14,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
 import { navItems } from './nav';
@@ -23,6 +24,7 @@ import { NavUserFooter } from './NavUserFooter';
 export function AppSidebar() {
   const location = useLocation();
   const { has, loading } = usePermissions();
+  const { state } = useSidebar();
   // Nothing renders as "missing" while /me is still in flight — an item
   // pops in once allowed, it never flashes and then disappears.
   const visibleItems = loading ? [] : navItems.filter((item) => has(item.permission));
@@ -32,17 +34,24 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center gap-1">
-            <SidebarMenuButton size="lg" asChild className="flex-1">
-              <NavLink to="/">
-                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <BrandIcon className="size-4" />
-                </div>
-                <span className="truncate font-semibold">Warehouse Ops</span>
-              </NavLink>
-            </SidebarMenuButton>
-            {/* Toggle lives inside the sidebar, next to the brand — not
-                floating in the content header. */}
-            <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
+            {state === 'collapsed' ? (
+              // Collapsed rail has room for one icon — it's the trigger
+              // itself (clicking re-expands), not the brand mark, so
+              // there's always a visible way back to expanded.
+              <SidebarTrigger className="size-8" />
+            ) : (
+              <>
+                <SidebarMenuButton size="lg" asChild className="flex-1">
+                  <NavLink to="/">
+                    <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                      <BrandIcon className="size-4" />
+                    </div>
+                    <span className="truncate font-semibold">Warehouse Ops</span>
+                  </NavLink>
+                </SidebarMenuButton>
+                <SidebarTrigger />
+              </>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
