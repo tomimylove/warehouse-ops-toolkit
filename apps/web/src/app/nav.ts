@@ -1,12 +1,4 @@
-import {
-  Megaphone,
-  Boxes,
-  ListChecks,
-  BookOpen,
-  UserRound,
-  Shield,
-  type LucideIcon,
-} from 'lucide-react';
+import { Megaphone, Boxes, ListChecks, BookOpen, Shield, type LucideIcon } from 'lucide-react';
 
 // Single source of truth for the sidebar — a module shows up here once
 // it has at least a placeholder route, whether or not it's built yet.
@@ -14,10 +6,17 @@ import {
 // Navigation 2.0 (specs/ARCHITECTURE.md, раздел 12) — YouGile-inspired
 // restructure: Announcements -> Operations (HSE, Staff, Weekly meeting,
 // Digital twin, Dashboards, Links) -> Tasks (replaces Projects+Planner)
-// -> Knowledge base -> Profile (Handover lives inside it, not its own
-// sidebar entry) -> Admin (always last). Notes is deliberately NOT here —
-// it opens from the quick-note button in the sidebar footer as a Sheet,
-// not a route.
+// -> Knowledge base -> Admin (always last).
+//
+// Profile is NOT in this list — it's the account switcher in the sidebar
+// footer (avatar + name, see NavUserFooter.tsx), not a regular nav item,
+// same as the original app's user block. Its route (/profile) and
+// permission key ('profile:view') still exist, just gated/rendered from
+// the footer instead of this list.
+//
+// Notes is also deliberately not here — it opens from the floating
+// quick-note button (QuickNoteFab, rendered by AppShell on every screen),
+// not a sidebar entry or a route.
 //
 // Every item carries the permission key that must be present for it to
 // show at all — this is not just a UI nicety: RequirePermission blocks
@@ -66,6 +65,5 @@ export const navItems: NavItem[] = [
     icon: BookOpen,
     permission: 'knowledge-base:view',
   },
-  { path: '/profile', label: 'Profile', status: 'placeholder', icon: UserRound, permission: 'profile:view' },
   { path: '/admin', label: 'Admin', status: 'placeholder', icon: Shield, permission: 'admin:view' },
 ];

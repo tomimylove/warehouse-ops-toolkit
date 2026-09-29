@@ -1,10 +1,9 @@
-import { ChevronRight, Moon, Sun, Warehouse as BrandIcon } from 'lucide-react';
+import { ChevronRight, Warehouse as BrandIcon } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -14,16 +13,15 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
 import { navItems } from './nav';
-import { useTheme } from './useTheme';
 import { usePermissions } from './PermissionsContext';
-import { QuickNotesButton } from '../features/tasks/QuickNotes';
+import { NavUserFooter } from './NavUserFooter';
 
 export function AppSidebar() {
   const location = useLocation();
-  const { theme, toggleTheme } = useTheme();
   const { has, loading } = usePermissions();
   // Nothing renders as "missing" while /me is still in flight — an item
   // pops in once allowed, it never flashes and then disappears.
@@ -33,8 +31,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+          <SidebarMenuItem className="flex items-center gap-1">
+            <SidebarMenuButton size="lg" asChild className="flex-1">
               <NavLink to="/">
                 <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                   <BrandIcon className="size-4" />
@@ -42,6 +40,9 @@ export function AppSidebar() {
                 <span className="truncate font-semibold">Warehouse Ops</span>
               </NavLink>
             </SidebarMenuButton>
+            {/* Toggle lives inside the sidebar, next to the brand — not
+                floating in the content header. */}
+            <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -111,17 +112,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          {has('tasks:view') && <QuickNotesButton />}
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={toggleTheme} tooltip={theme === 'light' ? 'Dark mode' : 'Light mode'}>
-              {theme === 'light' ? <Moon /> : <Sun />}
-              <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      <NavUserFooter />
     </Sidebar>
   );
 }

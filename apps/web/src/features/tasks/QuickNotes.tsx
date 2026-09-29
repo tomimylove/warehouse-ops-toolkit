@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NotebookPen } from 'lucide-react';
-import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
@@ -25,10 +24,10 @@ function loadNotes(): QuickNote[] {
   }
 }
 
-// The sidebar entry point for personal notes — deliberately not a nav
-// item/route (specs/ARCHITECTURE.md, раздел 12): opens a Sheet with the
-// note list, quick-add at the bottom, count as a badge on the button.
-export function QuickNotesButton() {
+// Floating action button, fixed bottom-right on every screen — not a
+// sidebar entry (specs/ARCHITECTURE.md, раздел 12). Opens a Sheet with
+// the note list and a quick-add field at the bottom.
+export function QuickNoteFab() {
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState<QuickNote[]>(loadNotes);
   const [draft, setDraft] = useState('');
@@ -46,17 +45,19 @@ export function QuickNotesButton() {
 
   return (
     <>
-      <SidebarMenuItem>
-        <SidebarMenuButton onClick={() => setOpen(true)} tooltip="Notes">
-          <NotebookPen />
-          <span>Notes</span>
-          {notes.length > 0 && (
-            <Badge variant="secondary" className="ml-auto h-5 min-w-5 justify-center px-1 group-data-[collapsible=icon]:hidden">
-              {notes.length}
-            </Badge>
-          )}
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Quick note"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 fixed right-6 bottom-6 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95"
+      >
+        <Plus className="size-5" />
+        {notes.length > 0 && (
+          <Badge variant="secondary" className="absolute -top-1 -right-1 h-5 min-w-5 justify-center px-1">
+            {notes.length}
+          </Badge>
+        )}
+      </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent className="flex flex-col">
@@ -74,12 +75,7 @@ export function QuickNotesButton() {
           </ul>
 
           <form onSubmit={addNote} className="border-t p-4">
-            <Input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Quick note…"
-              autoFocus
-            />
+            <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Quick note…" autoFocus />
           </form>
         </SheetContent>
       </Sheet>
