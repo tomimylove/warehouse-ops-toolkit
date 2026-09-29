@@ -4,13 +4,16 @@ import { BrowserRouter } from 'react-router-dom'
 import './styles/global.css'
 import App from './App.tsx'
 import { PermissionsProvider } from './app/PermissionsContext'
+import { ThemeProvider } from './app/ThemeContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <PermissionsProvider>
-        <App />
-      </PermissionsProvider>
+      <ThemeProvider>
+        <PermissionsProvider>
+          <App />
+        </PermissionsProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,
 )

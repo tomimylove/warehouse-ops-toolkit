@@ -2,6 +2,13 @@ import { ChevronRight, Warehouse as BrandIcon } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -65,6 +72,34 @@ export function AppSidebar() {
 
                 if (item.subNav) {
                   const groupActive = item.subNav.some((sub) => location.pathname === sub.path);
+
+                  // Collapsed rail has no room to expand inline — a click
+                  // opens a flyout menu next to the icon instead (same
+                  // idea as FSA's collapsed-group popover), rather than
+                  // silently doing nothing.
+                  if (state === 'collapsed') {
+                    return (
+                      <SidebarMenuItem key={item.path}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <SidebarMenuButton isActive={groupActive} tooltip={item.label}>
+                              <Icon />
+                              <span>{item.label}</span>
+                            </SidebarMenuButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="right" align="start" className="w-48">
+                            <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
+                            {item.subNav.map((sub) => (
+                              <DropdownMenuItem key={sub.path} asChild>
+                                <NavLink to={sub.path}>{sub.label}</NavLink>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </SidebarMenuItem>
+                    );
+                  }
+
                   return (
                     <Collapsible key={item.path} defaultOpen={groupActive} className="group/collapsible">
                       <SidebarMenuItem>

@@ -117,6 +117,53 @@
     --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Color themes (Profile > Appearance) — layered on top of the light/dark
+   mode above, not a replacement for it. "shadcn" is the generated Nova
+   default (no override needed). Only the accent-bearing tokens change —
+   hover states stay neutral, same as the FSA version did (buttons/active
+   nav item were the only blue, not every hover). */
+:root[data-theme-color='fsa'] {
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --ring: #2563eb;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: color-mix(in srgb, #2563eb 12%, var(--sidebar));
+  --sidebar-accent-foreground: #2563eb;
+  --sidebar-ring: #2563eb;
+}
+:root[data-theme-color='fsa'].dark {
+  --primary: #5b93ff;
+  --primary-foreground: #0e1014;
+  --ring: #5b93ff;
+  --sidebar-primary: #5b93ff;
+  --sidebar-primary-foreground: #0e1014;
+  --sidebar-accent: color-mix(in srgb, #5b93ff 16%, var(--sidebar));
+  --sidebar-accent-foreground: #5b93ff;
+  --sidebar-ring: #5b93ff;
+}
+
+:root[data-theme-color='violet'] {
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --ring: #7c3aed;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: color-mix(in srgb, #7c3aed 12%, var(--sidebar));
+  --sidebar-accent-foreground: #7c3aed;
+  --sidebar-ring: #7c3aed;
+}
+:root[data-theme-color='violet'].dark {
+  --primary: #a78bfa;
+  --primary-foreground: #1e1033;
+  --ring: #a78bfa;
+  --sidebar-primary: #a78bfa;
+  --sidebar-primary-foreground: #1e1033;
+  --sidebar-accent: color-mix(in srgb, #a78bfa 16%, var(--sidebar));
+  --sidebar-accent-foreground: #a78bfa;
+  --sidebar-ring: #a78bfa;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
