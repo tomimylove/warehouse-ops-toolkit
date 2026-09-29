@@ -202,6 +202,16 @@ specs/
    комментарии/история/видимость по командам/read-state — отложены, ждут
    своих Core-примитивов (см. `apps/web/src/features/announcements/README.md`).
    Остальные модули — только placeholder-страницы за `<module>:view`.
+8. ✅ Tasks — первый срез: `Project → Board (вкладки) → Column → Task`,
+   один и тот же `Task` для доски и для личных заметок (`boardId` пусто),
+   Board-view (без drag-n-drop), `TaskDrawer` с вкладками Description/
+   Subtasks (без чата — общий Core-примитив, ещё не спроектирован).
+   `QuickNoteFab` переведён с localStorage на реальный API. Права:
+   `tasks:create` — у роли Default тоже (личные заметки — не опция),
+   `tasks:edit`/`tasks:delete` не нужны для правки/удаления СВОЕЙ задачи
+   (проверка авторства в `TasksController`), только для чужой. Gantt/
+   Calendar/drag-n-drop/чат — следующий заход, см.
+   `apps/api/src/modules/tasks/README.md`.
 
 ## 11. Права доступа — гранулярный RBAC, не admin/editor/reader
 

@@ -1,46 +1,45 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
-
-interface QuickNote {
-  id: string;
-  text: string;
-  createdAt: string;
-}
-
-const STORAGE_KEY = 'quick-notes';
-
-// Placeholder persistence — real Notes are just Task rows with no boardId
-// (specs/ARCHITECTURE.md, раздел 12), but the Tasks module isn't built
-// yet. localStorage keeps this usable in the meantime; swap for
-// dataProvider('tasks') once that model exists, no UI change needed here.
-function loadNotes(): QuickNote[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
-  } catch {
-    return [];
-  }
-}
+import { tasksApi } from './api';
+import type { Task } from './types';
 
 // Floating action button, fixed bottom-right on every screen — not a
 // sidebar entry (specs/ARCHITECTURE.md, раздел 12). Opens a Sheet with
-// the note list and a quick-add field at the bottom.
+// the note list and a quick-add field at the bottom. Notes are just Task
+// rows with no boardId, scoped to their author by the API
+// (GET /tasks/mine) — same table as board tasks, not a separate model.
 export function QuickNoteFab() {
   const [open, setOpen] = useState(false);
-  const [notes, setNotes] = useState<QuickNote[]>(loadNotes);
+  const [notes, setNotes] = useState<Task[]>([]);
   const [draft, setDraft] = useState('');
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-  }, [notes]);
+  async function load() {
+    setNotes(await tasksApi.listMyNotes());
+  }
 
-  function addNote(e: React.FormEvent) {
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (open) load();
+  }, [open]);
+
+  async function addNote(e: React.FormEvent) {
     e.preventDefault();
     if (!draft.trim()) return;
-    setNotes((prev) => [{ id: crypto.randomUUID(), text: draft.trim(), createdAt: new Date().toISOString() }, ...prev]);
+    await tasksApi.createTask({ title: draft.trim() });
     setDraft('');
+    load();
+  }
+
+  async function removeNote(id: string) {
+    await tasksApi.removeTask(id);
+    load();
   }
 
   return (
@@ -68,8 +67,11 @@ export function QuickNoteFab() {
           <ul className="flex flex-1 flex-col gap-2 overflow-y-auto px-4">
             {notes.length === 0 && <p className="text-muted-foreground text-sm">No notes yet.</p>}
             {notes.map((note) => (
-              <li key={note.id} className="bg-card rounded-md border p-3 text-sm">
-                {note.text}
+              <li key={note.id} className="bg-card flex items-center justify-between gap-2 rounded-md border p-3 text-sm">
+                <span>{note.title}</span>
+                <Button variant="ghost" size="icon" className="size-6 shrink-0" onClick={() => removeNote(note.id)}>
+                  <Trash2 className="size-3.5" />
+                </Button>
               </li>
             ))}
           </ul>

@@ -22,6 +22,9 @@ const ALL_PERMISSIONS = [
   // instead of having its own key.
   'operations:view',
   'tasks:view',
+  'tasks:create',
+  'tasks:edit',
+  'tasks:delete',
   'knowledge-base:view',
   'profile:view',
   'admin:view',
@@ -32,8 +35,12 @@ const ALL_PERMISSIONS = [
 // editing this list, once there's a real opinion about what "everyone"
 // should see by default. Profile/Tasks are in here because they're where
 // personal notes and one's own work hub live — not optional for a
-// functioning account the way HSE or Admin are.
-const DEFAULT_ROLE_PERMISSIONS = ['announcements:view', 'tasks:view', 'profile:view'];
+// functioning account the way HSE or Admin are. tasks:create is what lets
+// a Default-role user make their own notes/projects/boards; tasks:edit
+// and tasks:delete are NOT granted by default — editing/deleting your own
+// task never needs them (TasksController checks authorship first), they
+// only gate touching someone else's.
+const DEFAULT_ROLE_PERMISSIONS = ['announcements:view', 'tasks:view', 'tasks:create', 'profile:view'];
 
 async function main() {
   const admin = await prisma.role.upsert({

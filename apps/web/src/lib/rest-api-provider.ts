@@ -2,7 +2,10 @@ import type { DataProvider } from './data-provider';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+// Exported for modules whose API doesn't fit the flat DataProvider shape
+// (nested routes, non-CRUD verbs like /tasks/mine) — Tasks' own client
+// (features/tasks/api.ts) builds on this instead of duplicating it.
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,

@@ -64,3 +64,71 @@ model RolePermission {
   @@unique([roleId, key])
   @@map("RolePermissions")
 }
+
+// Tasks module (specs/ARCHITECTURE.md, раздел 12) — YouGile-inspired:
+// Project -> Board (tabs within a project) -> Column -> Task, all through
+// one Task table. Board/Gantt/Calendar are just views over the same rows,
+// not separate models. A Task with no boardId is a personal Note — same
+// table, same API, just filtered to its author; converting a note into a
+// real task is a plain boardId/columnId update, not a data migration.
+model Project {
+  id        String   @id @default(cuid())
+  name      String   @db.NVarChar(200)
+  boards    Board[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Projects")
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String   @db.NVarChar(200)
+  order     Int      @default(0)
+  columns   Column[]
+  tasks     Task[]
+  createdAt DateTime @default(now())
+
+  @@map("Boards")
+}
+
+model Column {
+  id      String @id @default(cuid())
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name    String @db.NVarChar(100)
+  order   Int    @default(0)
+  tasks   Task[]
+
+  @@map("Columns")
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String    @db.NVarChar(300)
+  description String?   @db.NVarChar(Max)
+  boardId     String?
+  board       Board?    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  // NoAction, not SetNull/Cascade — SQL Server won't allow a second
+  // cascading path into Task alongside Board's (both trace back to
+  // Project). Column deletion nulls out columnId on its tasks in
+  // ColumnsService instead of relying on the FK action.
+  columnId    String?
+  column      Column?   @relation(fields: [columnId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order       Int       @default(0)
+  authorId    String
+  // Self-relation for subtasks — NoAction, not Cascade: SQL Server
+  // rejects multiple cascade paths into the same table (Board's cascade
+  // already reaches Task), so a subtask's deletion is handled in the
+  // service, not by the DB.
+  parentId    String?
+  parent      Task?     @relation("Subtasks", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subtasks    Task[]    @relation("Subtasks")
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("Tasks")
+}
