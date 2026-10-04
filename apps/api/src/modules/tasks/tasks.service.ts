@@ -73,10 +73,9 @@ export class TasksService {
     });
   }
 
-  async remove(id: string) {
-    // parentId has no DB-level cascade (see schema.prisma) — detach any
-    // subtasks first so the delete doesn't fail on the FK.
-    await this.prisma.task.updateMany({ where: { parentId: id }, data: { parentId: null } });
+  remove(id: string) {
+    // parentId is onDelete: SetNull — subtasks are detached, not deleted,
+    // by the DB itself, no manual cleanup needed here.
     return this.prisma.task.delete({ where: { id } });
   }
 }

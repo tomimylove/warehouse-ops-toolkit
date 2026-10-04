@@ -2,15 +2,20 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Switched from SQL Server to Postgres (free tier — Supabase/Neon, no
+// Azure AD tenant to fight with). Dropped the SQL-Server-only bits this
+// forced: @db.NVarChar sizing and the NoAction cascade workarounds below
+// — Postgres allows more than one cascade path into the same table, so
+// these relations are just the behavior we actually want now.
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Announcement {
   id        String   @id @default(cuid())
-  title     String   @db.NVarChar(200)
-  body      String   @db.NVarChar(Max)
+  title     String
+  body      String
   pinned    Boolean  @default(false)
   authorId  String
   createdAt DateTime @default(now())
@@ -43,8 +48,7 @@ model Role {
   // UsersService.findOrCreateByEmail) — editable like any other role
   // (rename it, change its permissions), just never deleted while it
   // holds this flag. Exactly one row should have it true; enforced in
-  // UsersService/seed, not a DB constraint (SQL Server has no partial
-  // unique index in the free tier setup we're targeting).
+  // UsersService/seed, not a DB constraint.
   isDefault   Boolean          @default(false)
   users       User[]
   permissions RolePermission[]
@@ -73,7 +77,7 @@ model RolePermission {
 // real task is a plain boardId/columnId update, not a data migration.
 model Project {
   id        String   @id @default(cuid())
-  name      String   @db.NVarChar(200)
+  name      String
   boards    Board[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -85,7 +89,7 @@ model Board {
   id        String   @id @default(cuid())
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  name      String   @db.NVarChar(200)
+  name      String
   order     Int      @default(0)
   columns   Column[]
   tasks     Task[]
@@ -98,7 +102,7 @@ model Column {
   id      String @id @default(cuid())
   boardId String
   board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  name    String @db.NVarChar(100)
+  name    String
   order   Int    @default(0)
   tasks   Task[]
 
@@ -107,24 +111,18 @@ model Column {
 
 model Task {
   id          String    @id @default(cuid())
-  title       String    @db.NVarChar(300)
-  description String?   @db.NVarChar(Max)
+  title       String
+  description String?
   boardId     String?
-  board       Board?    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  // NoAction, not SetNull/Cascade — SQL Server won't allow a second
-  // cascading path into Task alongside Board's (both trace back to
-  // Project). Column deletion nulls out columnId on its tasks in
-  // ColumnsService instead of relying on the FK action.
+  board       Board?    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  // Deleting a column un-assigns its tasks rather than deleting them.
   columnId    String?
-  column      Column?   @relation(fields: [columnId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  column      Column?   @relation(fields: [columnId], references: [id], onDelete: SetNull)
   order       Int       @default(0)
   authorId    String
-  // Self-relation for subtasks — NoAction, not Cascade: SQL Server
-  // rejects multiple cascade paths into the same table (Board's cascade
-  // already reaches Task), so a subtask's deletion is handled in the
-  // service, not by the DB.
+  // Deleting a task detaches (not deletes) its subtasks.
   parentId    String?
-  parent      Task?     @relation("Subtasks", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent      Task?     @relation("Subtasks", fields: [parentId], references: [id], onDelete: SetNull)
   subtasks    Task[]    @relation("Subtasks")
   dueDate     DateTime?
   createdAt   DateTime  @default(now())

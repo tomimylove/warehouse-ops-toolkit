@@ -3,7 +3,7 @@
 A generic warehouse operations toolkit — announcements, shift handover,
 staff/admin, and a digital twin (photo-annotated site plan + isometric
 schema) for warehouse layout. Built as a modular monolith: React frontend,
-NestJS backend, Prisma/SQL Server data layer, backend swappable behind a
+NestJS backend, Prisma/Postgres data layer, backend swappable behind a
 `DataProvider` interface.
 
 See `specs/` for the full architecture, data schema, and per-module
@@ -13,10 +13,9 @@ it's built and how complex it is to pick up.
 ## Status
 
 Scaffolded: `apps/web` (React + Vite), `apps/api` (NestJS), `prisma/schema.prisma`
-(SQL Server), CI on GitHub Actions, and a design system (tokens + base
-components, light/dark). See `specs/ARCHITECTURE.md` for full decisions,
-`specs/DESIGN_SYSTEM.md` for the visual language, and `specs/PRD.md` for
-scope.
+(Postgres), CI on GitHub Actions, and a design system (shadcn/ui, light/dark).
+See `specs/ARCHITECTURE.md` for full decisions, `specs/DESIGN_SYSTEM.md` for
+the visual language, and `specs/PRD.md` for scope.
 
 ## Modules
 
@@ -30,21 +29,21 @@ are no longer separate top-level entries.
 |---|---|---|
 | Announcements | Simple | Rich text (Tiptap), list + create/edit/delete/pin, RBAC-gated. Comments/attachments/stories/widgets/EntityDrawer planned, not built yet |
 | Operations (HSE, Staff, Weekly meeting, Digital twin, Dashboards, Links) | High — Digital Twin especially, read its own `README.md` first once it exists | Placeholder route only |
-| Tasks (replaces Projects + Planner) | High | Placeholder route only — `Project → Board (tabs) → Column → Task` model, not built |
+| Tasks (replaces Projects + Planner) | High | First slice built — `Project → Board (tabs) → Column → Task`, Board view, EntityDrawer (Description/Subtasks). No Gantt/Calendar/drag-and-drop/chat yet |
 | Knowledge base | Medium | Placeholder route only |
 | Profile (personal hub — my tasks, Handover, activity) | Medium | Placeholder route only |
 | Admin | Medium | Placeholder route only |
 
 ## Stack
 
-React + TypeScript · NestJS · Prisma · SQL Server (Azure SQL free tier for
-dev/demo) · GitHub Actions · Netlify
+React + TypeScript · NestJS · Prisma · Postgres (Supabase/Neon free tier
+for dev/demo) · GitHub Actions · Netlify
 
 ## Development
 
 ```bash
 npm install
-cp .env.example .env          # then point DATABASE_URL at your own SQL Server/Azure SQL
+cp .env.example .env          # then point DATABASE_URL at your own Postgres (Supabase/Neon)
 cp apps/web/.env.example apps/web/.env
 npx prisma generate --schema=prisma/schema.prisma
 npm run dev:api                # http://localhost:3000
