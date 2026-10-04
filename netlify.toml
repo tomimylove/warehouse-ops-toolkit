@@ -1,0 +1,25 @@
+[build]
+  # Generates the Prisma client, builds the web app, and compiles apps/api
+  # with its own tsc (nest build) — the netlify function requires that
+  # compiled output rather than the TS source (see netlify/functions/api.ts
+  # for why: esbuild can't do emitDecoratorMetadata, which Nest's DI needs).
+  # Netlify installs root deps automatically beforehand.
+  command = "npx prisma generate --schema=prisma/schema.prisma && npm run build:web && npm run build:api"
+  publish = "apps/web/dist"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["node_modules/.prisma/**", "node_modules/@prisma/**"]
+
+# Frontend calls /api/<entity> (see apps/web VITE_API_BASE_URL); this
+# forwards it to the NestJS app running in a Netlify Function.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA fallback so client-side routes (React Router) survive a hard refresh.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
