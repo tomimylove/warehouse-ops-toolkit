@@ -10,6 +10,18 @@
 [functions]
   node_bundler = "esbuild"
   included_files = ["node_modules/.prisma/**", "node_modules/@prisma/**"]
+  # @nestjs/core optionally requires these at runtime (microservices
+  # transports, websockets gateways, cache-manager) and catches the
+  # MODULE_NOT_FOUND itself when they're absent — we use none of them (plain
+  # HTTP only). esbuild doesn't know that and fails the build trying to
+  # statically resolve them, so they're excluded from bundling here.
+  external_node_modules = [
+    "@nestjs/microservices",
+    "@nestjs/websockets",
+    "@nestjs/websockets/socket-module",
+    "cache-manager",
+    "class-transformer/storage",
+  ]
 
 # Frontend calls /api/<entity> (see apps/web VITE_API_BASE_URL); this
 # forwards it to the NestJS app running in a Netlify Function.
