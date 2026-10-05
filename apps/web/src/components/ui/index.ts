@@ -5,4 +5,4 @@ export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 export { Badge } from './badge';
 export { PageHeader } from './PageHeader';
 export { EmptyState } from './EmptyState';
-export { RichTextEditor } from './RichTextEditor';
+export { RichTextEditor, RichTextToolbar } from './RichTextEditor';

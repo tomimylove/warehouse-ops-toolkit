@@ -28,9 +28,11 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   toolbar?: boolean;
+  bordered?: boolean;
   minHeight?: string;
   resizable?: boolean;
   autofocus?: boolean;
+  className?: string;
   onEditorReady?: (editor: Editor | null) => void;
   onSubmitKey?: () => void;
 }
@@ -72,6 +74,137 @@ function ToolbarSeparator() {
   return <div className="bg-border mx-0.5 w-px self-stretch" />;
 }
 
+// Shared formatting row — used both as the built-in toolbar of a bordered
+// RichTextEditor and standalone (e.g. the chat composer's "Aa" flyout,
+// which needs the toolbar detached from the input pill it sits above).
+export function RichTextToolbar({ editor, className }: { editor: Editor; className?: string }) {
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+
+  function openLinkPopover() {
+    setLinkUrl(editor.getAttributes('link').href ?? '');
+    setLinkPopoverOpen(true);
+  }
+
+  function applyLink() {
+    if (linkUrl.trim()) {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl.trim() }).run();
+    } else {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    }
+    setLinkPopoverOpen(false);
+  }
+
+  return (
+    <div className={cn('flex flex-wrap items-center gap-0.5 px-1.5 py-1', className)}>
+      <ToolbarButton title="Undo" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
+        <Undo className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton title="Redo" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
+        <Redo className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarSeparator />
+      <ToolbarButton title="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <Bold className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton title="Italic" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <Italic className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Underline"
+        active={editor.isActive('underline')}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      >
+        <UnderlineIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton title="Inline code" active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
+        <Code className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarSeparator />
+      <ToolbarButton
+        title="Heading 1"
+        active={editor.isActive('heading', { level: 1 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+      >
+        <Heading1 className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Heading 2"
+        active={editor.isActive('heading', { level: 2 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+      >
+        <Heading2 className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Heading 3"
+        active={editor.isActive('heading', { level: 3 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+      >
+        <Heading3 className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarSeparator />
+      <ToolbarButton
+        title="Bullet list"
+        active={editor.isActive('bulletList')}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+      >
+        <List className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Numbered list"
+        active={editor.isActive('orderedList')}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+      >
+        <ListOrdered className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Quote"
+        active={editor.isActive('blockquote')}
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+      >
+        <Quote className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Code block"
+        active={editor.isActive('codeBlock')}
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+      >
+        <SquareCode className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton title="Horizontal rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
+        <Minus className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarSeparator />
+      <div className="relative">
+        <ToolbarButton title="Link" active={editor.isActive('link')} onClick={openLinkPopover}>
+          <LinkIcon className="size-3.5" />
+        </ToolbarButton>
+        {linkPopoverOpen && (
+          <div className="bg-popover border-border absolute top-full left-0 z-10 mt-1 flex gap-1 rounded-md border p-1 shadow-md">
+            <input
+              autoFocus
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyLink();
+                }
+                if (e.key === 'Escape') setLinkPopoverOpen(false);
+              }}
+              placeholder="https://…"
+              className="h-7 w-48 rounded-sm border-none bg-transparent px-1.5 text-xs outline-none"
+            />
+            <button type="button" onClick={applyLink} className="bg-primary text-primary-foreground rounded-sm px-2 text-xs">
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Everyday rich-text field: headings, formatting marks, lists, quotes,
 // code blocks, links, undo/redo — enough for an announcement body without
 // turning into a full document editor (no tables/images/embeds).
@@ -80,15 +213,14 @@ export function RichTextEditor({
   onChange,
   placeholder,
   toolbar = true,
+  bordered = true,
   minHeight = '160px',
   resizable = true,
   autofocus = false,
+  className,
   onEditorReady,
   onSubmitKey,
 }: RichTextEditorProps) {
-  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
-  const [linkUrl, setLinkUrl] = useState('');
-
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -123,134 +255,9 @@ export function RichTextEditor({
 
   if (!editor) return null;
 
-  function openLinkPopover() {
-    setLinkUrl(editor!.getAttributes('link').href ?? '');
-    setLinkPopoverOpen(true);
-  }
-
-  function applyLink() {
-    if (linkUrl.trim()) {
-      editor!.chain().focus().extendMarkRange('link').setLink({ href: linkUrl.trim() }).run();
-    } else {
-      editor!.chain().focus().extendMarkRange('link').unsetLink().run();
-    }
-    setLinkPopoverOpen(false);
-  }
-
   return (
-    <div className="border-input bg-transparent flex flex-col rounded-md border shadow-xs">
-      {toolbar && (
-      <div className="border-input flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1">
-        <ToolbarButton title="Undo" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
-          <Undo className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton title="Redo" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
-          <Redo className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarSeparator />
-        <ToolbarButton title="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
-          <Bold className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton title="Italic" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
-          <Italic className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          title="Underline"
-          active={editor.isActive('underline')}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-        >
-          <UnderlineIcon className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton title="Inline code" active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
-          <Code className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarSeparator />
-        <ToolbarButton
-          title="Heading 1"
-          active={editor.isActive('heading', { level: 1 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        >
-          <Heading1 className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          title="Heading 2"
-          active={editor.isActive('heading', { level: 2 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        >
-          <Heading2 className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          title="Heading 3"
-          active={editor.isActive('heading', { level: 3 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        >
-          <Heading3 className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarSeparator />
-        <ToolbarButton
-          title="Bullet list"
-          active={editor.isActive('bulletList')}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-        >
-          <List className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          title="Numbered list"
-          active={editor.isActive('orderedList')}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        >
-          <ListOrdered className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          title="Quote"
-          active={editor.isActive('blockquote')}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        >
-          <Quote className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          title="Code block"
-          active={editor.isActive('codeBlock')}
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        >
-          <SquareCode className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarButton title="Horizontal rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
-          <Minus className="size-3.5" />
-        </ToolbarButton>
-        <ToolbarSeparator />
-        <div className="relative">
-          <ToolbarButton title="Link" active={editor.isActive('link')} onClick={openLinkPopover}>
-            <LinkIcon className="size-3.5" />
-          </ToolbarButton>
-          {linkPopoverOpen && (
-            <div className="bg-popover border-border absolute top-full left-0 z-10 mt-1 flex gap-1 rounded-md border p-1 shadow-md">
-              <input
-                autoFocus
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    applyLink();
-                  }
-                  if (e.key === 'Escape') setLinkPopoverOpen(false);
-                }}
-                placeholder="https://…"
-                className="h-7 w-48 rounded-sm border-none bg-transparent px-1.5 text-xs outline-none"
-              />
-              <button
-                type="button"
-                onClick={applyLink}
-                className="bg-primary text-primary-foreground rounded-sm px-2 text-xs"
-              >
-                Apply
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-      )}
+    <div className={cn(bordered && 'border-input bg-transparent flex flex-col rounded-md border shadow-xs', className)}>
+      {toolbar && <RichTextToolbar editor={editor} className="border-input border-b" />}
       {/* resize-y + overflow-auto gives the browser's native drag handle. */}
       <div className={cn('overflow-auto', resizable && 'resize-y')}>
         <EditorContent editor={editor} />

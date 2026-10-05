@@ -36,4 +36,6 @@ export const announcementsApi = {
     request<AnnouncementComment>(`/announcements/${id}/comments`, { method: 'POST', body: JSON.stringify({ text }) }),
   removeComment: (id: string, commentId: string) =>
     request<void>(`/announcements/${id}/comments/${commentId}`, { method: 'DELETE' }),
+  toggleCommentLike: (id: string, commentId: string) =>
+    request<AnnouncementComment>(`/announcements/${id}/comments/${commentId}/like`, { method: 'POST' }),
 };

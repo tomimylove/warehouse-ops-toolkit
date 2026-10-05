@@ -106,4 +106,11 @@ export class AnnouncementsController {
     const user = await this.currentUser.get();
     await this.comments.remove(commentId, user);
   }
+
+  @Post(':id/comments/:commentId/like')
+  @RequirePermission('announcements:view')
+  async toggleCommentLike(@Param('commentId') commentId: string) {
+    const user = await this.currentUser.get();
+    return this.comments.toggleLike(commentId, user.id);
+  }
 }

@@ -32,4 +32,17 @@ export class AnnouncementCommentsService {
     }
     await this.prisma.announcementComment.delete({ where: { id: commentId } });
   }
+
+  async toggleLike(commentId: string, userId: string) {
+    const comment = await this.prisma.announcementComment.findUnique({ where: { id: commentId } });
+    if (!comment) throw new NotFoundException(`Comment ${commentId} not found`);
+    const likedBy = comment.likedBy.includes(userId)
+      ? comment.likedBy.filter((id) => id !== userId)
+      : [...comment.likedBy, userId];
+    return this.prisma.announcementComment.update({
+      where: { id: commentId },
+      data: { likedBy },
+      include: { author: { select: { id: true, name: true } } },
+    });
+  }
 }
