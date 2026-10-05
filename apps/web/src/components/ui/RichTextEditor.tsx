@@ -33,6 +33,7 @@ interface RichTextEditorProps {
   resizable?: boolean;
   autofocus?: boolean;
   className?: string;
+  contentClassName?: string;
   onEditorReady?: (editor: Editor | null) => void;
   onSubmitKey?: () => void;
 }
@@ -218,6 +219,7 @@ export function RichTextEditor({
   resizable = true,
   autofocus = false,
   className,
+  contentClassName,
   onEditorReady,
   onSubmitKey,
 }: RichTextEditorProps) {
@@ -234,8 +236,10 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         style: `min-height: ${minHeight}`,
-        class:
+        class: cn(
           'px-3 py-2 outline-none text-sm [&_p]:m-0 [&_p]:mb-2 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:p-2 [&_pre]:text-xs [&_a]:text-primary [&_a]:underline',
+          contentClassName,
+        ),
       },
       handleKeyDown: (_view, event) => {
         if (onSubmitKey && event.key === 'Enter' && !event.shiftKey) {

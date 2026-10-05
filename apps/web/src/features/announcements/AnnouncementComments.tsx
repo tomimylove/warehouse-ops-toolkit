@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, Mic, Paperclip, SendHorizontal, Smile, Trash2, Type } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import {
+  ChatBubble,
+  ChatBubbleAction,
+  ChatBubbleActionWrapper,
+  ChatBubbleAvatar,
+  ChatBubbleMessage,
+  ChatBubbleTimestamp,
+} from '@/components/ui/chat-bubble';
 import { Button, RichTextEditor, RichTextToolbar } from '../../components/ui';
 import { usePermissions } from '../../app/PermissionsContext';
 import { announcementsApi } from './api';
@@ -22,7 +30,30 @@ function initials(name: string) {
 
 const EMOJI = ['👍', '❤️', '😂', '🎉', '😮', '🙏', '👏', '🔥', '✅', '😊', '🤔', '👀'];
 
-function ChatBubble({
+function LikePill({ liked, count, onClick }: { liked: boolean; count: number; onClick: () => void }) {
+  return (
+    <AnimatePresence>
+      {count > 0 && (
+        <motion.button
+          type="button"
+          onClick={onClick}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0, opacity: 0 }}
+          transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
+          className="bg-background border-border flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] shadow-sm"
+        >
+          <motion.span key={count} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="flex items-center gap-0.5">
+            <Heart className={cn('size-2.5', liked ? 'fill-red-500 text-red-500' : 'text-muted-foreground')} />
+            {count}
+          </motion.span>
+        </motion.button>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function Bubble({
   comment,
   own,
   canDelete,
@@ -40,55 +71,27 @@ function ChatBubble({
   const liked = userId ? comment.likedBy.includes(userId) : false;
 
   return (
-    <div className={cn('group mb-1 flex items-end gap-2', own && 'flex-row-reverse')}>
-      <Avatar className="mb-5 size-7 shrink-0">
-        <AvatarFallback className="text-xs">{initials(comment.author.name)}</AvatarFallback>
-      </Avatar>
-      <div className={cn('flex max-w-[72%] min-w-0 flex-col gap-1', own ? 'items-end' : 'items-start')}>
-        {!own && <span className="text-muted-foreground px-1 text-xs font-medium">{comment.author.name}</span>}
-        <div className="relative">
-          <div
-            className={cn(
-              'rounded-2xl px-3.5 py-2 text-sm break-words [&_a]:underline [&_p]:m-0 [&_p]:mb-1 [&_p:last-child]:mb-0',
-              own ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted rounded-bl-sm',
-            )}
-            dangerouslySetInnerHTML={{ __html: comment.text }}
-          />
-          {comment.likedBy.length > 0 && (
-            <button
-              type="button"
-              onClick={onToggleLike}
-              className={cn(
-                'bg-background border-border absolute -bottom-2.5 flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] shadow-sm',
-                own ? '-left-1.5' : '-right-1.5',
-              )}
-            >
-              <Heart className={cn('size-2.5', liked ? 'fill-red-500 text-red-500' : 'text-muted-foreground')} />
-              {comment.likedBy.length}
-            </button>
-          )}
+    <div className={cn('mb-3 flex flex-col', own ? 'items-end' : 'items-start')}>
+      <ChatBubble variant={own ? 'sent' : 'received'}>
+        <ChatBubbleAvatar fallback={initials(comment.author.name)} />
+        <div className="flex min-w-0 flex-col">
+          {!own && <span className="text-muted-foreground mb-1 px-1 text-xs font-medium">{comment.author.name}</span>}
+          <div className="relative">
+            <ChatBubbleMessage variant={own ? 'sent' : 'received'} html={comment.text} />
+            <div className={cn('absolute -bottom-2.5', own ? '-left-1.5' : '-right-1.5')}>
+              <LikePill liked={liked} count={comment.likedBy.length} onClick={onToggleLike} />
+            </div>
+          </div>
+          <ChatBubbleActionWrapper variant={own ? 'sent' : 'received'}>
+            <ChatBubbleAction icon={<Heart className={cn('size-3.5', liked && 'fill-red-500 text-red-500')} />} onClick={onToggleLike} />
+            {canDelete && <ChatBubbleAction icon={<Trash2 className="size-3.5" />} onClick={onDelete} />}
+          </ChatBubbleActionWrapper>
         </div>
-        <div className="mt-1 flex items-center gap-2 px-1">
-          <span className="text-muted-foreground text-[11px]">
-            {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-          </span>
-          <button
-            type="button"
-            onClick={onToggleLike}
-            className={cn(
-              'text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100',
-              comment.likedBy.length > 0 && 'hidden',
-            )}
-          >
-            <Heart className={cn('size-3', liked && 'fill-red-500 text-red-500')} />
-          </button>
-          {canDelete && (
-            <button type="button" onClick={onDelete} className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-              <Trash2 className="size-3" />
-            </button>
-          )}
-        </div>
-      </div>
+      </ChatBubble>
+      <ChatBubbleTimestamp
+        timestamp={formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+        className={cn(comment.likedBy.length > 0 && 'mt-2.5', own ? 'mr-9' : 'ml-9')}
+      />
     </div>
   );
 }
@@ -170,7 +173,7 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
       {!loading && (
         <div className="flex flex-col">
           {comments.map((c) => (
-            <ChatBubble
+            <Bubble
               key={c.id}
               comment={c}
               own={c.author.id === user?.id}
@@ -184,90 +187,111 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
         </div>
       )}
 
-      <div className="mt-4 flex flex-col gap-1.5">
-        {richOpen && editor && (
-          <div className="border-input bg-popover rounded-lg border shadow-xs">
-            <RichTextToolbar editor={editor} />
-          </div>
-        )}
-
-        <div className="border-input focus-within:ring-ring/30 flex items-end gap-1 rounded-3xl border px-2 py-1.5 focus-within:ring-2">
-          {!hasText && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 rounded-full" disabled>
-                  <Paperclip className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Attachments — coming soon</TooltipContent>
-            </Tooltip>
-          )}
-
-          <RichTextEditor
-            value={draft}
-            onChange={setDraft}
-            placeholder="Write a message…"
-            toolbar={false}
-            bordered={false}
-            minHeight="20px"
-            resizable={false}
-            className="min-w-0 flex-1"
-            onEditorReady={setEditor}
-            onSubmitKey={handlePost}
-          />
-
-          <Button
-            type="button"
-            variant={richOpen ? 'secondary' : 'ghost'}
-            size="icon"
-            className="size-7 shrink-0 rounded-full"
-            onClick={() => setRichOpen((v) => !v)}
-          >
-            <Type className="size-3.5" />
-          </Button>
-
-          <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 rounded-full">
-                <Smile className="size-3.5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto" align="end">
-              <div className="grid grid-cols-6 gap-1">
-                {EMOJI.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    className="hover:bg-accent flex size-8 items-center justify-center rounded-md text-lg"
-                    onClick={() => insertEmoji(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {hasText ? (
-            <Button
-              type="button"
-              size="icon"
-              className="size-7 shrink-0 rounded-full"
-              onClick={handlePost}
-              disabled={posting}
+      <div className="mt-2 flex flex-col gap-1.5">
+        <AnimatePresence initial={false}>
+          {richOpen && editor && (
+            <motion.div
+              key="toolbar"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="border-input bg-popover overflow-hidden rounded-lg border shadow-xs"
             >
-              <SendHorizontal className="size-3.5" />
-            </Button>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 rounded-full" disabled>
-                  <Mic className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Voice messages — coming soon</TooltipContent>
-            </Tooltip>
+              <RichTextToolbar editor={editor} />
+            </motion.div>
           )}
+        </AnimatePresence>
+
+        <div className="flex items-end gap-1">
+          <AnimatePresence initial={false}>
+            {!hasText && (
+              <motion.div
+                key="attach"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                className="overflow-hidden"
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full" disabled>
+                      <Paperclip className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Attachments — coming soon</TooltipContent>
+                </Tooltip>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="border-input focus-within:border-ring relative min-w-0 flex-1 rounded-3xl border transition-colors">
+            <RichTextEditor
+              value={draft}
+              onChange={setDraft}
+              placeholder="Write a message…"
+              toolbar={false}
+              bordered={false}
+              minHeight="20px"
+              resizable={false}
+              contentClassName="pr-16"
+              onEditorReady={setEditor}
+              onSubmitKey={handlePost}
+            />
+            <div className="absolute right-1.5 bottom-1 flex items-center gap-0.5">
+              <Button
+                type="button"
+                variant={richOpen ? 'secondary' : 'ghost'}
+                size="icon"
+                className="size-7 shrink-0 rounded-full"
+                onClick={() => setRichOpen((v) => !v)}
+              >
+                <Type className="size-3.5" />
+              </Button>
+
+              <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 rounded-full">
+                    <Smile className="size-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto" align="end">
+                  <div className="grid grid-cols-6 gap-1">
+                    {EMOJI.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="hover:bg-accent flex size-8 items-center justify-center rounded-md text-lg"
+                        onClick={() => insertEmoji(emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait" initial={false}>
+            {hasText ? (
+              <motion.div key="send" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}>
+                <Button type="button" size="icon" className="size-8 shrink-0 rounded-full" onClick={handlePost} disabled={posting}>
+                  <SendHorizontal className="size-4" />
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div key="mic" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full" disabled>
+                      <Mic className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Voice messages — coming soon</TooltipContent>
+                </Tooltip>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
