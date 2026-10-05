@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, Heart, History, MessageCircle, MoreHorizontal, Pencil, Pin, PinOff, Plus, Trash2 } from 'lucide-react';
+import { History, MoreHorizontal, Pencil, Pin, PinOff, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { announcementsApi } from './api';
 import { coverFor } from './covers';
@@ -23,7 +23,6 @@ import { AnnouncementHistory } from './AnnouncementHistory';
 import type { Announcement } from './types';
 
 const INLINE_TEAM_TABS = 4;
-const PAGE_WIDTH = 'mx-auto w-full max-w-[1360px]';
 
 function initials(name: string) {
   return name
@@ -34,11 +33,6 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function excerpt(html: string, max = 180) {
-  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
 export function AnnouncementsPage() {
   const { has } = usePermissions();
   const [items, setItems] = useState<Announcement[]>([]);
@@ -46,9 +40,6 @@ export function AnnouncementsPage() {
   const [error, setError] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Feed is the default landing view (large cards); opening a post switches
-  // to the compact list + reading pane, same data either way.
-  const [view, setView] = useState<'feed' | 'reading'>('feed');
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
@@ -61,7 +52,12 @@ export function AnnouncementsPage() {
     try {
       const list = await announcementsApi.list();
       setItems(list);
-      if (selectedId && !list.some((a) => a.id === selectedId)) setSelectedId(null);
+      setSelectedId((prev) => {
+        if (prev && list.some((a) => a.id === prev)) return prev;
+        // Nothing selected (or the selection vanished) — default to the
+        // newest record rather than leaving the reading pane empty.
+        return list[0]?.id ?? null;
+      });
     } catch {
       setError('Could not load announcements. Is the API running?');
     } finally {
@@ -86,15 +82,10 @@ export function AnnouncementsPage() {
 
   async function select(item: Announcement) {
     setSelectedId(item.id);
-    setView('reading');
     if (!item.isRead) {
       await announcementsApi.markRead(item.id);
       setItems((prev) => prev.map((a) => (a.id === item.id ? { ...a, isRead: true } : a)));
     }
-  }
-
-  function backToFeed() {
-    setView('feed');
   }
 
   async function handleMarkAllRead() {
@@ -115,10 +106,7 @@ export function AnnouncementsPage() {
   async function handleDeleteConfirm() {
     if (!deleting) return;
     await announcementsApi.remove(deleting.id);
-    if (selectedId === deleting.id) {
-      setSelectedId(null);
-      setView('feed');
-    }
+    if (selectedId === deleting.id) setSelectedId(null);
     setDeleting(null);
     load();
   }
@@ -142,140 +130,87 @@ export function AnnouncementsPage() {
   const overflowTeams = teams.slice(INLINE_TEAM_TABS);
 
   return (
-    <section className="flex h-full flex-col">
-      <div className={PAGE_WIDTH}>
-        <PageHeader title="Announcements" subtitle="What the team needs to know, in one place." />
+    <section className="mx-auto flex h-full w-full max-w-[1360px] flex-col">
+      <PageHeader title="Announcements" subtitle="What the team needs to know, in one place." />
 
-        {/* Reserved for the HSE-incidents "stories" ribbon (specs ported
-            from the HSE widgets spec) — not built yet, placeholder keeps
-            the slot and layout stable for when it lands. */}
-        <div className="border-border mb-4 flex items-center gap-3 rounded-md border border-dashed px-3 py-2">
-          <span className="text-muted-foreground text-xs font-medium">Stories</span>
-          <div className="flex gap-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="bg-muted size-8 shrink-0 rounded-full" />
-            ))}
-          </div>
-          <span className="text-muted-foreground ml-auto text-xs">Coming soon</span>
+      {/* Reserved for the HSE-incidents "stories" ribbon (specs ported from
+          the HSE widgets spec) — not built yet, placeholder keeps the slot
+          and layout stable for when it lands. */}
+      <div className="border-border mb-4 flex items-center gap-3 rounded-md border border-dashed px-3 py-2">
+        <span className="text-muted-foreground text-xs font-medium">Stories</span>
+        <div className="flex gap-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-muted size-8 shrink-0 rounded-full" />
+          ))}
         </div>
-
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {view === 'reading' ? (
-            <Button type="button" variant="ghost" size="sm" onClick={backToFeed}>
-              <ArrowLeft className="size-4" />
-              Back to feed
-            </Button>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant={teamFilter === null ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setTeamFilter(null)}
-              >
-                All
-              </Button>
-              {inlineTeams.map((t) => (
-                <Button
-                  key={t.id}
-                  type="button"
-                  variant={teamFilter === t.id ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setTeamFilter(t.id)}
-                >
-                  {t.name}
-                </Button>
-              ))}
-              {overflowTeams.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" className="size-8">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {overflowTeams.map((t) => (
-                      <DropdownMenuItem key={t.id} onSelect={() => setTeamFilter(t.id)}>
-                        {t.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {unreadCount > 0 && (
-              <Button type="button" variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                Mark all as read
-              </Button>
-            )}
-            {has('announcements:create') && (
-              <Button type="button" size="sm" onClick={openCreate}>
-                <Plus className="size-4" />
-                New announcement
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
-        {error && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <EmptyState message="No announcements yet — publish the first one above." />
-        )}
+        <span className="text-muted-foreground ml-auto text-xs">Coming soon</span>
       </div>
 
-      {!loading && !error && filtered.length > 0 && view === 'feed' && (
-        <div className={`${PAGE_WIDTH} animate-in fade-in-0 slide-in-from-bottom-2 flex flex-1 flex-col gap-4 overflow-y-auto duration-300`}>
-          {filtered.map((item) => {
-            const cover = coverFor(item.id, item.coverId);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => select(item)}
-                className="border-border hover:border-primary/40 flex flex-col overflow-hidden rounded-lg border text-left transition-colors"
-              >
-                <div className="h-40 w-full" style={{ background: cover.gradient }} />
-                <div className="flex flex-col gap-2 p-4">
-                  <div className="flex items-start gap-1.5">
-                    {!item.isRead && <span className="bg-primary mt-1.5 size-1.5 shrink-0 rounded-full" />}
-                    {item.pinned && <Pin className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />}
-                    <h3 className={`text-base ${item.isRead ? 'font-medium' : 'font-semibold'}`}>{item.title}</h3>
-                  </div>
-                  <p className="text-muted-foreground text-sm">{excerpt(item.body)}</p>
-                  <div className="mt-1 flex items-center gap-3">
-                    <Avatar className="size-5">
-                      <AvatarFallback className="text-[10px]">{initials(item.author.name)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-muted-foreground text-xs">{item.author.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                    </span>
-                    {/* Comments/likes — Phase 2, not wired up yet. */}
-                    <span className="text-muted-foreground ml-auto flex items-center gap-1 text-xs">
-                      <MessageCircle className="size-3.5" />—
-                    </span>
-                    <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                      <Heart className="size-3.5" />—
-                    </span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant={teamFilter === null ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={() => setTeamFilter(null)}
+        >
+          All
+        </Button>
+        {inlineTeams.map((t) => (
+          <Button
+            key={t.id}
+            type="button"
+            variant={teamFilter === t.id ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setTeamFilter(t.id)}
+          >
+            {t.name}
+          </Button>
+        ))}
+        {overflowTeams.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="size-8">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {overflowTeams.map((t) => (
+                <DropdownMenuItem key={t.id} onSelect={() => setTeamFilter(t.id)}>
+                  {t.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          {unreadCount > 0 && (
+            <Button type="button" variant="ghost" size="sm" onClick={handleMarkAllRead}>
+              Mark all as read
+            </Button>
+          )}
+          {has('announcements:create') && (
+            <Button type="button" size="sm" onClick={openCreate}>
+              <Plus className="size-4" />
+              New announcement
+            </Button>
+          )}
         </div>
+      </div>
+
+      {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
       )}
 
-      {!loading && !error && filtered.length > 0 && view === 'reading' && (
-        <div className={`${PAGE_WIDTH} animate-in fade-in-0 slide-in-from-right-2 grid min-h-0 flex-1 grid-cols-[320px_minmax(0,720px)_280px] gap-4 duration-300`}>
+      {!loading && !error && filtered.length === 0 && (
+        <EmptyState message="No announcements yet — publish the first one above." />
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,720px)_280px] gap-4">
           <ul className="flex flex-col gap-1 overflow-y-auto">
             {filtered.map((item) => {
               const cover = coverFor(item.id, item.coverId);
@@ -313,7 +248,9 @@ export function AnnouncementsPage() {
           <div className="min-h-0 overflow-y-auto">
             {selected && (
               <div>
-                <div className="flex items-start justify-between gap-2">
+                <div className="h-32 w-full rounded-md" style={{ background: coverFor(selected.id, selected.coverId).gradient }} />
+
+                <div className="mt-4 flex items-start justify-between gap-2">
                   <h2 className="text-lg font-semibold">{selected.title}</h2>
                   <div className="flex shrink-0 gap-1">
                     {has('announcements:edit') && (
@@ -339,12 +276,7 @@ export function AnnouncementsPage() {
                   </div>
                 </div>
 
-                <div
-                  className="mt-3 h-32 w-full rounded-md"
-                  style={{ background: coverFor(selected.id, selected.coverId).gradient }}
-                />
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Avatar className="size-6">
                     <AvatarFallback className="text-xs">{initials(selected.author.name)}</AvatarFallback>
                   </Avatar>

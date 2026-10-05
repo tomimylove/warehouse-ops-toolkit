@@ -126,17 +126,20 @@
   --primary: #4a72b0;
   --primary-foreground: #ffffff;
   --ring: #4a72b0;
-  --sidebar-primary: #4a72b0;
+  /* Sidebar active-item text/border keeps the original, more saturated
+     FSA blue — unlike --primary (buttons), toning this one down read as
+     washed out against the sidebar background. */
+  --sidebar-primary: #2563eb;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-ring: #4a72b0;
+  --sidebar-ring: #2563eb;
 }
 :root[data-theme-color='fsa'].dark {
   --primary: #8aa9d6;
   --primary-foreground: #0e1014;
   --ring: #8aa9d6;
-  --sidebar-primary: #8aa9d6;
+  --sidebar-primary: #5b93ff;
   --sidebar-primary-foreground: #0e1014;
-  --sidebar-ring: #8aa9d6;
+  --sidebar-ring: #5b93ff;
 }
 
 :root[data-theme-color='violet'] {
