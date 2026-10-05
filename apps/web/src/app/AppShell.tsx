@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { AppSidebar } from './AppSidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { usePermissions } from './PermissionsContext';
 import { QuickNoteFab } from '../features/tasks/QuickNotes';
@@ -19,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex flex-1 flex-col p-6">{children}</div>
         </SidebarInset>
         <GlobalOverlays />
+        <Toaster />
       </SidebarProvider>
     </TooltipProvider>
   );
