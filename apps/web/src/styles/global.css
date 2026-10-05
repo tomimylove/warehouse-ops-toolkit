@@ -166,4 +166,16 @@
   html {
     @apply font-sans;
     }
+  button:not(:disabled),
+  a[href],
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='checkbox'],
+  [role='switch'],
+  summary,
+  label[for],
+  select {
+    cursor: pointer;
+    }
 }
