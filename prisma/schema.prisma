@@ -22,8 +22,16 @@ model Announcement {
   body      String
   pinned    Boolean  @default(false)
   authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Id into the client-side curated cover gallery (apps/web), not a URL —
+  // keeps "pick a cover" from needing file storage or a third-party photo
+  // API wired up. Null means "no cover chosen"; the feed then derives a
+  // stable pseudo-random one from the announcement id, so a post still
+  // gets a cover without one being stored for it.
+  coverId String?
 
   // Team-limited visibility (specs/features/01-announcements.md, Решение 91):
   // visible to everyone by default; unchecking "Limit to specific teams" in
@@ -122,6 +130,7 @@ model User {
   team                  Team?                  @relation(fields: [teamId], references: [id])
   announcementReads     AnnouncementRead[]
   announcementVersions  AnnouncementVersion[]
+  announcementsAuthored Announcement[]
 
   @@map("Users")
 }

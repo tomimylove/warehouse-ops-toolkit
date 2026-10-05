@@ -24,4 +24,8 @@ export class UpdateAnnouncementDto {
   @IsArray()
   @IsString({ each: true })
   teamIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  coverId?: string;
 }

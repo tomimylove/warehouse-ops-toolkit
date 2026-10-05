@@ -10,6 +10,7 @@ const MAX_VERSIONS = 10;
 
 const include = {
   teams: { include: { team: true } },
+  author: { select: { id: true, name: true } },
 } as const;
 
 function toDto(row: Awaited<ReturnType<AnnouncementsService['findRaw']>>, isRead: boolean) {

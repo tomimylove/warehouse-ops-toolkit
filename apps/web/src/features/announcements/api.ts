@@ -7,6 +7,7 @@ export interface AnnouncementInput {
   pinned?: boolean;
   visibleToAll?: boolean;
   teamIds?: string[];
+  coverId?: string;
 }
 
 // Dedicated client (same reasoning as features/tasks/api.ts) — read

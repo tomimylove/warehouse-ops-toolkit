@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Pin, Plus } from 'lucide-react';
 import { Button, Input, RichTextEditor } from '../../components/ui';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/command';
 import { usePermissions } from '../../app/PermissionsContext';
 import { announcementsApi } from './api';
+import { COVERS } from './covers';
 import type { Announcement, Team } from './types';
 
 interface Draft {
@@ -20,9 +21,10 @@ interface Draft {
   body: string;
   pinned: boolean;
   teamIds: string[];
+  coverId: string | null;
 }
 
-const EMPTY_DRAFT: Draft = { title: '', body: '', pinned: false, teamIds: [] };
+const EMPTY_DRAFT: Draft = { title: '', body: '', pinned: false, teamIds: [], coverId: null };
 
 function draftKey(announcementId: string | null) {
   return `announcement-draft:${announcementId ?? 'new'}`;
@@ -58,7 +60,13 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
       setLimitTeams(JSON.parse(stored).teamIds.length > 0);
       setRestoredDraft(true);
     } else if (editing) {
-      setDraft({ title: editing.title, body: editing.body, pinned: editing.pinned, teamIds: editing.teams.map((t) => t.id) });
+      setDraft({
+        title: editing.title,
+        body: editing.body,
+        pinned: editing.pinned,
+        teamIds: editing.teams.map((t) => t.id),
+        coverId: editing.coverId,
+      });
       setLimitTeams(!editing.visibleToAll);
       setRestoredDraft(false);
     } else {
@@ -87,7 +95,13 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
     clearDraft();
     setDraft(
       editing
-        ? { title: editing.title, body: editing.body, pinned: editing.pinned, teamIds: editing.teams.map((t) => t.id) }
+        ? {
+            title: editing.title,
+            body: editing.body,
+            pinned: editing.pinned,
+            teamIds: editing.teams.map((t) => t.id),
+            coverId: editing.coverId,
+          }
         : EMPTY_DRAFT,
     );
     setLimitTeams(editing ? !editing.visibleToAll : false);
@@ -117,6 +131,7 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
         pinned: draft.pinned,
         visibleToAll: !limitTeams,
         teamIds: limitTeams ? draft.teamIds : [],
+        coverId: draft.coverId ?? undefined,
       };
       if (editing) {
         await announcementsApi.update(editing.id, payload);
@@ -134,14 +149,14 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
   const selectedTeams = teams.filter((t) => draft.teamIds.includes(t.id));
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'Edit announcement' : 'New announcement'}</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>{editing ? 'Edit announcement' : 'New announcement'}</SheetTitle>
+        </SheetHeader>
 
         {restoredDraft && (
-          <div className="bg-muted flex items-center justify-between rounded-md px-3 py-2 text-sm">
+          <div className="bg-muted mx-4 flex items-center justify-between rounded-md px-3 py-2 text-sm">
             <span className="text-muted-foreground">Restored your unsaved draft.</span>
             <Button type="button" variant="ghost" size="sm" onClick={discardDraft}>
               Discard draft
@@ -149,12 +164,41 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form id="announcement-composer-form" onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3 px-4 pb-4">
           <Input
             value={draft.title}
             onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
             placeholder="Title"
           />
+
+          <div>
+            <p className="text-muted-foreground mb-1.5 text-xs font-medium">Cover</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                title="Random"
+                onClick={() => setDraft((d) => ({ ...d, coverId: null }))}
+                className={`text-muted-foreground flex size-8 items-center justify-center rounded-md border text-xs ${
+                  draft.coverId === null ? 'border-primary' : 'border-border'
+                }`}
+              >
+                ?
+              </button>
+              {COVERS.map((cover) => (
+                <button
+                  key={cover.id}
+                  type="button"
+                  title={cover.id}
+                  onClick={() => setDraft((d) => ({ ...d, coverId: cover.id }))}
+                  style={{ background: cover.gradient }}
+                  className={`size-8 rounded-md border-2 ${
+                    draft.coverId === cover.id ? 'border-primary' : 'border-transparent'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
           <RichTextEditor
             value={draft.body}
             onChange={(body) => setDraft((d) => ({ ...d, body }))}
@@ -208,17 +252,18 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
             </div>
           )}
 
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {editing ? 'Save' : 'Publish'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+
+        <SheetFooter className="flex-row justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="announcement-composer-form" disabled={saving}>
+            {editing ? 'Save' : 'Publish'}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 

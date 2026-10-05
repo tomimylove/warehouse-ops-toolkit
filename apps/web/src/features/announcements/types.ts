@@ -9,11 +9,13 @@ export interface Announcement {
   body: string;
   pinned: boolean;
   authorId: string;
+  author: { id: string; name: string };
   createdAt: string;
   updatedAt: string;
   visibleToAll: boolean;
   teams: Team[];
   isRead: boolean;
+  coverId: string | null;
 }
 
 export interface AnnouncementVersion {
