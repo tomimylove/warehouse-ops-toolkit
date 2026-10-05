@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { useEffect, useState } from 'react';
+import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
@@ -27,6 +27,12 @@ interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  toolbar?: boolean;
+  minHeight?: string;
+  resizable?: boolean;
+  autofocus?: boolean;
+  onEditorReady?: (editor: Editor | null) => void;
+  onSubmitKey?: () => void;
 }
 
 function ToolbarButton({
@@ -69,7 +75,17 @@ function ToolbarSeparator() {
 // Everyday rich-text field: headings, formatting marks, lists, quotes,
 // code blocks, links, undo/redo — enough for an announcement body without
 // turning into a full document editor (no tables/images/embeds).
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  toolbar = true,
+  minHeight = '160px',
+  resizable = true,
+  autofocus = false,
+  onEditorReady,
+  onSubmitKey,
+}: RichTextEditorProps) {
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
 
@@ -81,14 +97,29 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
       Placeholder.configure({ placeholder }),
     ],
     content: value,
+    autofocus,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
+        style: `min-height: ${minHeight}`,
         class:
-          'min-h-[160px] px-3 py-2 outline-none text-sm [&_p]:m-0 [&_p]:mb-2 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:p-2 [&_pre]:text-xs [&_a]:text-primary [&_a]:underline',
+          'px-3 py-2 outline-none text-sm [&_p]:m-0 [&_p]:mb-2 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:p-2 [&_pre]:text-xs [&_a]:text-primary [&_a]:underline',
+      },
+      handleKeyDown: (_view, event) => {
+        if (onSubmitKey && event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          onSubmitKey();
+          return true;
+        }
+        return false;
       },
     },
   });
+
+  useEffect(() => {
+    onEditorReady?.(editor ?? null);
+    return () => onEditorReady?.(null);
+  }, [editor, onEditorReady]);
 
   if (!editor) return null;
 
@@ -108,6 +139,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
   return (
     <div className="border-input bg-transparent flex flex-col rounded-md border shadow-xs">
+      {toolbar && (
       <div className="border-input flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1">
         <ToolbarButton title="Undo" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
           <Undo className="size-3.5" />
@@ -218,8 +250,9 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
           )}
         </div>
       </div>
+      )}
       {/* resize-y + overflow-auto gives the browser's native drag handle. */}
-      <div className="resize-y overflow-auto">
+      <div className={cn('overflow-auto', resizable && 'resize-y')}>
         <EditorContent editor={editor} />
       </div>
     </div>

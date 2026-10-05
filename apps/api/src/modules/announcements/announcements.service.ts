@@ -73,23 +73,31 @@ export class AnnouncementsService {
   async update(id: string, dto: UpdateAnnouncementDto, userId: string) {
     const before = await this.findRaw(id);
     const { teamIds, ...data } = dto;
+    const changes = changeSummary(before, dto);
 
-    await this.snapshotVersion(id, before, userId, changeSummary(before, dto));
+    // A bare pin/unpin toggle doesn't warrant a version snapshot — skipping
+    // it for that one-field case saves 2-3 round trips on the single most
+    // frequent write this module makes, and the write + read-status lookup
+    // below run in parallel instead of one after another for the same reason.
+    const onlyPinToggled = changes.length === 1 && (changes[0] === 'Pinned' || changes[0] === 'Unpinned');
 
-    const row = await this.prisma.announcement.update({
-      where: { id },
-      data: {
-        ...data,
-        teams:
-          teamIds !== undefined
-            ? { deleteMany: {}, create: teamIds.map((teamId) => ({ teamId })) }
-            : undefined,
-      },
-      include,
-    });
-    const read = await this.prisma.announcementRead.findUnique({
-      where: { announcementId_userId: { announcementId: id, userId } },
-    });
+    const [row, read] = await Promise.all([
+      this.prisma.announcement.update({
+        where: { id },
+        data: {
+          ...data,
+          teams:
+            teamIds !== undefined
+              ? { deleteMany: {}, create: teamIds.map((teamId) => ({ teamId })) }
+              : undefined,
+        },
+        include,
+      }),
+      this.prisma.announcementRead.findUnique({
+        where: { announcementId_userId: { announcementId: id, userId } },
+      }),
+      onlyPinToggled ? Promise.resolve() : this.snapshotVersion(id, before, userId, changes),
+    ]);
     return toDto(row, read !== null);
   }
 
