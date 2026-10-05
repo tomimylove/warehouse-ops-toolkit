@@ -34,7 +34,7 @@ interface AnnouncementComposerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: Announcement | null;
-  onSaved: () => void;
+  onSaved: (saved: Announcement) => void;
 }
 
 // Accidental-close protection (click outside, Escape): the draft is
@@ -133,14 +133,12 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
         teamIds: limitTeams ? draft.teamIds : [],
         coverId: draft.coverId ?? undefined,
       };
-      if (editing) {
-        await announcementsApi.update(editing.id, payload);
-      } else {
-        await announcementsApi.create(payload);
-      }
+      const saved = editing
+        ? await announcementsApi.update(editing.id, payload)
+        : await announcementsApi.create(payload);
       clearDraft();
       onOpenChange(false);
-      onSaved();
+      onSaved(saved);
     } finally {
       setSaving(false);
     }

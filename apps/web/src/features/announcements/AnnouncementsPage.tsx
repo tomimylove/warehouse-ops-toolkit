@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AnnouncementComments } from './AnnouncementComments';
 import { AnnouncementComposer } from './AnnouncementComposer';
 import { AnnouncementHistory } from './AnnouncementHistory';
 import type { Announcement } from './types';
@@ -98,6 +99,7 @@ export function AnnouncementsPage() {
     setItems((prev) => prev.map((a) => (a.id === item.id ? updated : a)));
     if (announceUndo) {
       toast(pinned ? 'Pinned' : 'Unpinned', {
+        description: `"${item.title}" ${pinned ? 'now shows at the top of the feed.' : 'no longer shows at the top.'}`,
         action: { label: 'Undo', onClick: () => setPinned(updated, !pinned, { announceUndo: false }) },
       });
     }
@@ -121,8 +123,10 @@ export function AnnouncementsPage() {
     setComposerOpen(true);
   }
 
-  function handleSaved(wasEditing: boolean) {
-    toast(wasEditing ? 'Announcement updated' : 'Announcement published');
+  function handleSaved(saved: Announcement, wasEditing: boolean) {
+    toast(wasEditing ? 'Announcement updated' : 'Announcement published', {
+      description: `"${saved.title}" ${wasEditing ? 'has been updated.' : 'is now live in the feed.'}`,
+    });
     load();
   }
 
@@ -131,7 +135,18 @@ export function AnnouncementsPage() {
 
   return (
     <section className="mx-auto flex h-full w-full max-w-[1360px] flex-col">
-      <PageHeader title="Announcements" subtitle="What the team needs to know, in one place." />
+      <PageHeader
+        title="Announcements"
+        subtitle="What the team needs to know, in one place."
+        action={
+          has('announcements:create') && (
+            <Button type="button" size="sm" onClick={openCreate}>
+              <Plus className="size-4" />
+              New announcement
+            </Button>
+          )
+        }
+      />
 
       {/* Reserved for the HSE-incidents "stories" ribbon (specs ported from
           the HSE widgets spec) — not built yet, placeholder keeps the slot
@@ -183,19 +198,11 @@ export function AnnouncementsPage() {
           </DropdownMenu>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
-          {unreadCount > 0 && (
-            <Button type="button" variant="ghost" size="sm" onClick={handleMarkAllRead}>
-              Mark all as read
-            </Button>
-          )}
-          {has('announcements:create') && (
-            <Button type="button" size="sm" onClick={openCreate}>
-              <Plus className="size-4" />
-              New announcement
-            </Button>
-          )}
-        </div>
+        {unreadCount > 0 && (
+          <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={handleMarkAllRead}>
+            Mark all as read
+          </Button>
+        )}
       </div>
 
       {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
@@ -248,10 +255,24 @@ export function AnnouncementsPage() {
           <div className="min-h-0 overflow-y-auto">
             {selected && (
               <div>
-                <div className="h-32 w-full rounded-md" style={{ background: coverFor(selected.id, selected.coverId).gradient }} />
+                <h2 className="text-lg font-semibold">{selected.title}</h2>
 
-                <div className="mt-4 flex items-start justify-between gap-2">
-                  <h2 className="text-lg font-semibold">{selected.title}</h2>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Avatar className="size-6">
+                      <AvatarFallback className="text-xs">{initials(selected.author.name)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium">{selected.author.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {formatDistanceToNow(new Date(selected.createdAt), { addSuffix: true })}
+                    </span>
+                    {!selected.visibleToAll &&
+                      selected.teams.map((t) => (
+                        <span key={t.id} className="bg-muted rounded-full px-2 py-0.5 text-xs">
+                          {t.name}
+                        </span>
+                      ))}
+                  </div>
                   <div className="flex shrink-0 gap-1">
                     {has('announcements:edit') && (
                       <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(true)} title="History">
@@ -276,25 +297,16 @@ export function AnnouncementsPage() {
                   </div>
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Avatar className="size-6">
-                    <AvatarFallback className="text-xs">{initials(selected.author.name)}</AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium">{selected.author.name}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {formatDistanceToNow(new Date(selected.createdAt), { addSuffix: true })}
-                  </span>
-                  {!selected.visibleToAll &&
-                    selected.teams.map((t) => (
-                      <span key={t.id} className="bg-muted rounded-full px-2 py-0.5 text-xs">
-                        {t.name}
-                      </span>
-                    ))}
-                </div>
+                <div
+                  className="mt-4 h-32 w-full rounded-md"
+                  style={{ background: coverFor(selected.id, selected.coverId).gradient }}
+                />
 
                 {/* Tiptap output is our own sanitized rich text — safe to render.
                     If this ever accepts arbitrary user HTML from elsewhere, sanitize first. */}
                 <div className="mt-4 text-sm [&_p]:m-0 [&_p]:mb-2" dangerouslySetInnerHTML={{ __html: selected.body }} />
+
+                <AnnouncementComments announcementId={selected.id} />
               </div>
             )}
           </div>
@@ -315,7 +327,7 @@ export function AnnouncementsPage() {
         open={composerOpen}
         onOpenChange={setComposerOpen}
         editing={editing}
-        onSaved={() => handleSaved(editing !== null)}
+        onSaved={(saved) => handleSaved(saved, editing !== null)}
       />
 
       {selected && (

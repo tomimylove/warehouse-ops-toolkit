@@ -8,6 +8,7 @@ export function Toaster(props: ToasterProps) {
     <Sonner
       theme={mode}
       position="top-right"
+      closeButton
       className="toaster group"
       style={
         {

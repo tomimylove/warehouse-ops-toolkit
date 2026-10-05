@@ -1,5 +1,5 @@
 import { request } from '../../lib/rest-api-provider';
-import type { Announcement, AnnouncementVersion, Team } from './types';
+import type { Announcement, AnnouncementComment, AnnouncementVersion, Team } from './types';
 
 export interface AnnouncementInput {
   title: string;
@@ -30,4 +30,10 @@ export const announcementsApi = {
 
   listTeams: () => request<Team[]>('/teams'),
   createTeam: (name: string) => request<Team>('/teams', { method: 'POST', body: JSON.stringify({ name }) }),
+
+  listComments: (id: string) => request<AnnouncementComment[]>(`/announcements/${id}/comments`),
+  createComment: (id: string, text: string) =>
+    request<AnnouncementComment>(`/announcements/${id}/comments`, { method: 'POST', body: JSON.stringify({ text }) }),
+  removeComment: (id: string, commentId: string) =>
+    request<void>(`/announcements/${id}/comments/${commentId}`, { method: 'DELETE' }),
 };

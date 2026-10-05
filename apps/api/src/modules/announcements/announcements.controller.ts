@@ -2,8 +2,10 @@ import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, Pat
 import { CurrentUserService } from '../auth/current-user.service';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermission } from '../auth/require-permission.decorator';
+import { AnnouncementCommentsService } from './announcement-comments.service';
 import { AnnouncementsService } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
 
 @Controller('announcements')
@@ -11,6 +13,7 @@ import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
 export class AnnouncementsController {
   constructor(
     private readonly announcements: AnnouncementsService,
+    private readonly comments: AnnouncementCommentsService,
     private readonly currentUser: CurrentUserService,
   ) {}
 
@@ -81,5 +84,26 @@ export class AnnouncementsController {
   async restoreVersion(@Param('id') id: string, @Param('versionId') versionId: string) {
     const user = await this.currentUser.get();
     return this.announcements.restoreVersion(id, versionId, user.id);
+  }
+
+  @Get(':id/comments')
+  @RequirePermission('announcements:view')
+  listComments(@Param('id') id: string) {
+    return this.comments.list(id);
+  }
+
+  @Post(':id/comments')
+  @RequirePermission('announcements:view')
+  async createComment(@Param('id') id: string, @Body() dto: CreateCommentDto) {
+    const user = await this.currentUser.get();
+    return this.comments.create(id, user.id, dto.text);
+  }
+
+  @Delete(':id/comments/:commentId')
+  @HttpCode(204)
+  @RequirePermission('announcements:view')
+  async removeComment(@Param('commentId') commentId: string) {
+    const user = await this.currentUser.get();
+    await this.comments.remove(commentId, user);
   }
 }

@@ -1,5 +1,26 @@
+import { useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Underline from '@tiptap/extension-underline';
+import Placeholder from '@tiptap/extension-placeholder';
+import {
+  Bold,
+  Code,
+  Heading1,
+  Heading2,
+  Heading3,
+  Italic,
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Minus,
+  Quote,
+  Redo,
+  SquareCode,
+  Underline as UnderlineIcon,
+  Undo,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RichTextEditorProps {
@@ -10,20 +31,30 @@ interface RichTextEditorProps {
 
 function ToolbarButton({
   active,
+  disabled,
   onClick,
+  title,
   children,
 }: {
-  active: boolean;
+  active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
+  title: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
+      title={title}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
-        'rounded-sm px-2 py-0.5 font-mono text-xs',
-        active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+        'flex size-7 items-center justify-center rounded-sm',
+        disabled
+          ? 'text-muted-foreground/40'
+          : active
+            ? 'bg-accent text-accent-foreground'
+            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
       )}
     >
       {children}
@@ -31,43 +62,166 @@ function ToolbarButton({
   );
 }
 
-// Minimal rich-text field: bold/italic/lists/links — enough for an
-// announcement body, not a full document editor. Swap StarterKit's
-// extension list if a module needs more later.
+function ToolbarSeparator() {
+  return <div className="bg-border mx-0.5 w-px self-stretch" />;
+}
+
+// Everyday rich-text field: headings, formatting marks, lists, quotes,
+// code blocks, links, undo/redo — enough for an announcement body without
+// turning into a full document editor (no tables/images/embeds).
 export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({ openOnClick: false, autolink: true }),
+      Placeholder.configure({ placeholder }),
+    ],
     content: value,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: 'min-h-[100px] px-3 py-2 outline-none text-sm [&_p]:m-0 [&_p]:mb-2' },
+      attributes: {
+        class:
+          'min-h-[160px] px-3 py-2 outline-none text-sm [&_p]:m-0 [&_p]:mb-2 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:p-2 [&_pre]:text-xs [&_a]:text-primary [&_a]:underline',
+      },
     },
   });
 
   if (!editor) return null;
 
+  function openLinkPopover() {
+    setLinkUrl(editor!.getAttributes('link').href ?? '');
+    setLinkPopoverOpen(true);
+  }
+
+  function applyLink() {
+    if (linkUrl.trim()) {
+      editor!.chain().focus().extendMarkRange('link').setLink({ href: linkUrl.trim() }).run();
+    } else {
+      editor!.chain().focus().extendMarkRange('link').unsetLink().run();
+    }
+    setLinkPopoverOpen(false);
+  }
+
   return (
-    <div className="border-input bg-transparent relative rounded-md border shadow-xs">
-      <div className="border-input flex gap-1 border-b px-2 py-1">
-        <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
-          B
+    <div className="border-input bg-transparent flex flex-col rounded-md border shadow-xs">
+      <div className="border-input flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1">
+        <ToolbarButton title="Undo" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
+          <Undo className="size-3.5" />
         </ToolbarButton>
-        <ToolbarButton active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
-          I
+        <ToolbarButton title="Redo" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
+          <Redo className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <ToolbarButton title="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
+          <Bold className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton title="Italic" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
+          <Italic className="size-3.5" />
         </ToolbarButton>
         <ToolbarButton
+          title="Underline"
+          active={editor.isActive('underline')}
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+        >
+          <UnderlineIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton title="Inline code" active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
+          <Code className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <ToolbarButton
+          title="Heading 1"
+          active={editor.isActive('heading', { level: 1 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          <Heading1 className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Heading 2"
+          active={editor.isActive('heading', { level: 2 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          <Heading2 className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Heading 3"
+          active={editor.isActive('heading', { level: 3 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        >
+          <Heading3 className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <ToolbarButton
+          title="Bullet list"
           active={editor.isActive('bulletList')}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
         >
-          • List
+          <List className="size-3.5" />
         </ToolbarButton>
+        <ToolbarButton
+          title="Numbered list"
+          active={editor.isActive('orderedList')}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        >
+          <ListOrdered className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Quote"
+          active={editor.isActive('blockquote')}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        >
+          <Quote className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Code block"
+          active={editor.isActive('codeBlock')}
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        >
+          <SquareCode className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton title="Horizontal rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
+          <Minus className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <div className="relative">
+          <ToolbarButton title="Link" active={editor.isActive('link')} onClick={openLinkPopover}>
+            <LinkIcon className="size-3.5" />
+          </ToolbarButton>
+          {linkPopoverOpen && (
+            <div className="bg-popover border-border absolute top-full left-0 z-10 mt-1 flex gap-1 rounded-md border p-1 shadow-md">
+              <input
+                autoFocus
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyLink();
+                  }
+                  if (e.key === 'Escape') setLinkPopoverOpen(false);
+                }}
+                placeholder="https://…"
+                className="h-7 w-48 rounded-sm border-none bg-transparent px-1.5 text-xs outline-none"
+              />
+              <button
+                type="button"
+                onClick={applyLink}
+                className="bg-primary text-primary-foreground rounded-sm px-2 text-xs"
+              >
+                Apply
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <EditorContent editor={editor} />
-      {editor.isEmpty && placeholder && (
-        <span className="text-muted-foreground pointer-events-none absolute top-11 left-3 text-sm">
-          {placeholder}
-        </span>
-      )}
+      {/* resize-y + overflow-auto gives the browser's native drag handle. */}
+      <div className="resize-y overflow-auto">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

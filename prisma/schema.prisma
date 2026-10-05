@@ -42,8 +42,26 @@ model Announcement {
   teams        AnnouncementTeam[]
   reads        AnnouncementRead[]
   versions     AnnouncementVersion[]
+  comments     AnnouncementComment[]
 
   @@map("Announcements")
+}
+
+// Flat comments (specs/DATA_SCHEMA.md, "Comment") — plain text, no nested
+// replies for v1. Kept directly on Announcement rather than the old
+// entityType/entityId polymorphic shape: Announcements is still the only
+// consumer, so a real foreign key is simpler than designing a generic
+// comments system nothing else uses yet.
+model AnnouncementComment {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id])
+  text           String
+  createdAt      DateTime     @default(now())
+
+  @@map("AnnouncementComments")
 }
 
 model AnnouncementTeam {
@@ -131,6 +149,7 @@ model User {
   announcementReads     AnnouncementRead[]
   announcementVersions  AnnouncementVersion[]
   announcementsAuthored Announcement[]
+  announcementComments  AnnouncementComment[]
 
   @@map("Users")
 }

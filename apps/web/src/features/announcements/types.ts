@@ -18,6 +18,13 @@ export interface Announcement {
   coverId: string | null;
 }
 
+export interface AnnouncementComment {
+  id: string;
+  text: string;
+  createdAt: string;
+  author: { id: string; name: string };
+}
+
 export interface AnnouncementVersion {
   id: string;
   snapshot: { title: string; body: string; pinned: boolean; visibleToAll: boolean; teamIds: string[] } | null;
