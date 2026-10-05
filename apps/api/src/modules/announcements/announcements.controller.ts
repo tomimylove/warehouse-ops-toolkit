@@ -6,6 +6,7 @@ import { AnnouncementCommentsService } from './announcement-comments.service';
 import { AnnouncementsService } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { ToggleReactionDto } from './dto/toggle-reaction.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
 
 @Controller('announcements')
@@ -107,10 +108,10 @@ export class AnnouncementsController {
     await this.comments.remove(commentId, user);
   }
 
-  @Post(':id/comments/:commentId/like')
+  @Post(':id/comments/:commentId/reactions')
   @RequirePermission('announcements:view')
-  async toggleCommentLike(@Param('commentId') commentId: string) {
+  async toggleCommentReaction(@Param('commentId') commentId: string, @Body() dto: ToggleReactionDto) {
     const user = await this.currentUser.get();
-    return this.comments.toggleLike(commentId, user.id);
+    return this.comments.toggleReaction(commentId, user.id, dto.emoji);
   }
 }

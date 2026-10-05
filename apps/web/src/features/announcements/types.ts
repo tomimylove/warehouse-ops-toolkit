@@ -23,7 +23,7 @@ export interface AnnouncementComment {
   text: string;
   createdAt: string;
   author: { id: string; name: string };
-  likedBy: string[];
+  reactions: Record<string, string[]>;
 }
 
 export interface AnnouncementVersion {

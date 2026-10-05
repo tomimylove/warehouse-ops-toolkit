@@ -33,15 +33,22 @@ export class AnnouncementCommentsService {
     await this.prisma.announcementComment.delete({ where: { id: commentId } });
   }
 
-  async toggleLike(commentId: string, userId: string) {
+  // reactions is a { emoji: userId[] } map — toggling removes the user from
+  // that emoji's list (and drops the key once empty) or adds them to it.
+  async toggleReaction(commentId: string, userId: string, emoji: string) {
     const comment = await this.prisma.announcementComment.findUnique({ where: { id: commentId } });
     if (!comment) throw new NotFoundException(`Comment ${commentId} not found`);
-    const likedBy = comment.likedBy.includes(userId)
-      ? comment.likedBy.filter((id) => id !== userId)
-      : [...comment.likedBy, userId];
+    const reactions = { ...(comment.reactions as Record<string, string[]>) };
+    const users = reactions[emoji] ?? [];
+    const nextUsers = users.includes(userId) ? users.filter((id) => id !== userId) : [...users, userId];
+    if (nextUsers.length > 0) {
+      reactions[emoji] = nextUsers;
+    } else {
+      delete reactions[emoji];
+    }
     return this.prisma.announcementComment.update({
       where: { id: commentId },
-      data: { likedBy },
+      data: { reactions },
       include: { author: { select: { id: true, name: true } } },
     });
   }

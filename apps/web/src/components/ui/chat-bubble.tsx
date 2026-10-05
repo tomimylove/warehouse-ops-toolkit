@@ -41,7 +41,7 @@ interface ChatBubbleAvatarProps {
 }
 
 const ChatBubbleAvatar: React.FC<ChatBubbleAvatarProps> = ({ src, fallback, className }) => (
-  <Avatar className={cn('mb-5 size-7 shrink-0', className)}>
+  <Avatar className={cn('size-7 shrink-0', className)}>
     {src && <AvatarImage src={src} alt="" />}
     <AvatarFallback className="text-xs">{fallback}</AvatarFallback>
   </Avatar>

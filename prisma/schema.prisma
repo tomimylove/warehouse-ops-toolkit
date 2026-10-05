@@ -59,7 +59,7 @@ model AnnouncementComment {
   authorId       String
   author         User         @relation(fields: [authorId], references: [id])
   text           String
-  likedBy        String[]     @default([])
+  reactions      Json         @default("{}")
   createdAt      DateTime     @default(now())
 
   @@map("AnnouncementComments")

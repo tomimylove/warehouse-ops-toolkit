@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, Mic, Paperclip, SendHorizontal, Smile, Trash2, Type } from 'lucide-react';
+import { Mic, Paperclip, SendHorizontal, SmilePlus, Trash2, Type } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -29,25 +29,68 @@ function initials(name: string) {
 }
 
 const EMOJI = ['👍', '❤️', '😂', '🎉', '😮', '🙏', '👏', '🔥', '✅', '😊', '🤔', '👀'];
+const MAX_REACTIONS_SHOWN = 3;
 
-function LikePill({ liked, count, onClick }: { liked: boolean; count: number; onClick: () => void }) {
+function EmojiGrid({ onPick }: { onPick: (emoji: string) => void }) {
+  return (
+    <div className="grid grid-cols-6 gap-1">
+      {EMOJI.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          className="hover:bg-accent flex size-8 items-center justify-center rounded-md text-lg"
+          onClick={() => onPick(emoji)}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// A single pill housing every reaction on the comment (grouped by emoji,
+// each with its own count), not one pill per emoji — matches the
+// Discord/YouGile-style reaction bar, not a bare like counter.
+function ReactionBar({
+  reactions,
+  userId,
+  own,
+  onToggle,
+}: {
+  reactions: Record<string, string[]>;
+  userId?: string;
+  own: boolean;
+  onToggle: (emoji: string) => void;
+}) {
+  const entries = Object.entries(reactions).filter(([, users]) => users.length > 0);
+  const shown = entries.slice(0, MAX_REACTIONS_SHOWN);
+  const extra = entries.length - shown.length;
+
   return (
     <AnimatePresence>
-      {count > 0 && (
-        <motion.button
-          type="button"
-          onClick={onClick}
+      {entries.length > 0 && (
+        <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
           transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
-          className="bg-background border-border flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] shadow-sm"
+          className={cn('bg-background border-border absolute -bottom-3 flex items-center gap-1 rounded-full border px-1.5 py-0.5 shadow-sm', own ? 'left-1.5' : 'right-1.5')}
         >
-          <motion.span key={count} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="flex items-center gap-0.5">
-            <Heart className={cn('size-2.5', liked ? 'fill-red-500 text-red-500' : 'text-muted-foreground')} />
-            {count}
-          </motion.span>
-        </motion.button>
+          {shown.map(([emoji, users]) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => onToggle(emoji)}
+              className={cn('flex items-center gap-0.5 rounded-full px-0.5 text-xs', userId && users.includes(userId) && 'bg-primary/10')}
+            >
+              <motion.span key={users.length} initial={{ scale: 1.4 }} animate={{ scale: 1 }}>
+                {emoji}
+              </motion.span>
+              <span className="text-muted-foreground text-[10px]">{users.length}</span>
+            </button>
+          ))}
+          {extra > 0 && <span className="text-muted-foreground px-0.5 text-[10px]">+{extra}</span>}
+        </motion.div>
       )}
     </AnimatePresence>
   );
@@ -59,38 +102,48 @@ function Bubble({
   canDelete,
   userId,
   onDelete,
-  onToggleLike,
+  onToggleReaction,
 }: {
   comment: AnnouncementComment;
   own: boolean;
   canDelete: boolean;
   userId?: string;
   onDelete: () => void;
-  onToggleLike: () => void;
+  onToggleReaction: (emoji: string) => void;
 }) {
-  const liked = userId ? comment.likedBy.includes(userId) : false;
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
-    <div className={cn('mb-3 flex flex-col', own ? 'items-end' : 'items-start')}>
+    <div className={cn('mb-4 flex flex-col', own ? 'items-end' : 'items-start')}>
       <ChatBubble variant={own ? 'sent' : 'received'}>
         <ChatBubbleAvatar fallback={initials(comment.author.name)} />
         <div className="flex min-w-0 flex-col">
           {!own && <span className="text-muted-foreground mb-1 px-1 text-xs font-medium">{comment.author.name}</span>}
           <div className="relative">
             <ChatBubbleMessage variant={own ? 'sent' : 'received'} html={comment.text} />
-            <div className={cn('absolute -bottom-2.5', own ? '-left-1.5' : '-right-1.5')}>
-              <LikePill liked={liked} count={comment.likedBy.length} onClick={onToggleLike} />
-            </div>
+            <ReactionBar reactions={comment.reactions} userId={userId} own={own} onToggle={onToggleReaction} />
           </div>
           <ChatBubbleActionWrapper variant={own ? 'sent' : 'received'}>
-            <ChatBubbleAction icon={<Heart className={cn('size-3.5', liked && 'fill-red-500 text-red-500')} />} onClick={onToggleLike} />
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <ChatBubbleAction icon={<SmilePlus className="size-3.5" />} />
+              </PopoverTrigger>
+              <PopoverContent className="w-auto" align="center">
+                <EmojiGrid
+                  onPick={(emoji) => {
+                    onToggleReaction(emoji);
+                    setPickerOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
             {canDelete && <ChatBubbleAction icon={<Trash2 className="size-3.5" />} onClick={onDelete} />}
           </ChatBubbleActionWrapper>
         </div>
       </ChatBubble>
       <ChatBubbleTimestamp
         timestamp={formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-        className={cn(comment.likedBy.length > 0 && 'mt-2.5', own ? 'mr-9' : 'ml-9')}
+        className={cn(Object.keys(comment.reactions).length > 0 && 'mt-2.5', own ? 'mr-9' : 'ml-9')}
       />
     </div>
   );
@@ -152,8 +205,8 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
     setComments((prev) => prev.filter((c) => c.id !== commentId));
   }
 
-  async function handleToggleLike(commentId: string) {
-    const updated = await announcementsApi.toggleCommentLike(announcementId, commentId);
+  async function handleToggleReaction(commentId: string, emoji: string) {
+    const updated = await announcementsApi.toggleCommentReaction(announcementId, commentId, emoji);
     setComments((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
   }
 
@@ -180,14 +233,17 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
               canDelete={c.author.id === user?.id || has('announcements:delete')}
               userId={user?.id}
               onDelete={() => handleDelete(c.id)}
-              onToggleLike={() => handleToggleLike(c.id)}
+              onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
             />
           ))}
           <div ref={bottomRef} />
         </div>
       )}
 
-      <div className="mt-2 flex flex-col gap-1.5">
+      {/* Single bordered container for the whole composer — the toolbar flyout
+          and the icon row both live inside it, so nothing looks bolted on
+          and nothing (send/mic included) pokes out past the border. */}
+      <div className="border-input focus-within:border-ring mt-3 overflow-hidden rounded-2xl border transition-colors">
         <AnimatePresence initial={false}>
           {richOpen && editor && (
             <motion.div
@@ -195,14 +251,14 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-input bg-popover overflow-hidden rounded-lg border shadow-xs"
+              className="border-input overflow-hidden border-b"
             >
               <RichTextToolbar editor={editor} />
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="flex items-end gap-1">
+        <div className="flex items-center gap-0.5 px-1.5 py-1">
           <AnimatePresence initial={false}>
             {!hasText && (
               <motion.div
@@ -224,53 +280,40 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
             )}
           </AnimatePresence>
 
-          <div className="border-input focus-within:border-ring relative min-w-0 flex-1 rounded-3xl border transition-colors">
-            <RichTextEditor
-              value={draft}
-              onChange={setDraft}
-              placeholder="Write a message…"
-              toolbar={false}
-              bordered={false}
-              minHeight="20px"
-              resizable={false}
-              contentClassName="pr-16"
-              onEditorReady={setEditor}
-              onSubmitKey={handlePost}
-            />
-            <div className="absolute right-1.5 bottom-1 flex items-center gap-0.5">
-              <Button
-                type="button"
-                variant={richOpen ? 'secondary' : 'ghost'}
-                size="icon"
-                className="size-7 shrink-0 rounded-full"
-                onClick={() => setRichOpen((v) => !v)}
-              >
-                <Type className="size-3.5" />
-              </Button>
+          <RichTextEditor
+            value={draft}
+            onChange={setDraft}
+            placeholder="Write a message…"
+            toolbar={false}
+            bordered={false}
+            minHeight="20px"
+            resizable={false}
+            className="min-w-0 flex-1"
+            contentClassName="px-2 py-1"
+            onEditorReady={setEditor}
+            onSubmitKey={handlePost}
+          />
 
-              <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 rounded-full">
-                    <Smile className="size-3.5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto" align="end">
-                  <div className="grid grid-cols-6 gap-1">
-                    {EMOJI.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        className="hover:bg-accent flex size-8 items-center justify-center rounded-md text-lg"
-                        onClick={() => insertEmoji(emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
+          <Button
+            type="button"
+            variant={richOpen ? 'secondary' : 'ghost'}
+            size="icon"
+            className="size-8 shrink-0 rounded-full"
+            onClick={() => setRichOpen((v) => !v)}
+          >
+            <Type className="size-4" />
+          </Button>
+
+          <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full">
+                <SmilePlus className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto" align="end">
+              <EmojiGrid onPick={insertEmoji} />
+            </PopoverContent>
+          </Popover>
 
           <AnimatePresence mode="wait" initial={false}>
             {hasText ? (
