@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateAnnouncementDto {
   @IsOptional()
@@ -13,4 +13,15 @@ export class UpdateAnnouncementDto {
   @IsOptional()
   @IsBoolean()
   pinned?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  visibleToAll?: boolean;
+
+  // Omitted entirely = don't touch team assignments. Pass [] explicitly to
+  // clear them.
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  teamIds?: string[];
 }

@@ -25,7 +25,80 @@ model Announcement {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Team-limited visibility (specs/features/01-announcements.md, Решение 91):
+  // visible to everyone by default; unchecking "Limit to specific teams" in
+  // the form just means `teams` is empty while this stays true. The
+  // restriction only ever applies to a plain reader — anyone with
+  // announcements:edit sees every announcement regardless of their own team.
+  visibleToAll Boolean            @default(true)
+  teams        AnnouncementTeam[]
+  reads        AnnouncementRead[]
+  versions     AnnouncementVersion[]
+
   @@map("Announcements")
+}
+
+model AnnouncementTeam {
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  teamId         String
+  team           Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, teamId])
+  @@map("AnnouncementTeams")
+}
+
+// Per-record read tracking, not per-module (specs/DATA_SCHEMA.md, "ReadMark",
+// Решение 46) — a module-wide "last seen" timestamp cleared every unread
+// badge the moment any one record was opened, which read wrong in practice.
+// Existence of a row = this user has opened this announcement.
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+  @@map("AnnouncementReads")
+}
+
+// Snapshot-on-save history (specs/DATA_SCHEMA.md, "История версий") — every
+// edit appends the PREVIOUS state here before overwriting Announcement, so
+// "History" can list and restore past versions. `activity`-only rows (no
+// snapshot) cover events a plain save-diff can't catch, like an attachment
+// being added outside the edit form. Pruned to the last 10 per announcement
+// by the service, not a DB constraint — this is accidental-edit protection,
+// not a full audit log.
+model AnnouncementVersion {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  // Full { title, body, pinned, ... } copy of the record just before this
+  // save; null for an activity-only row.
+  snapshot       Json?
+  changes        String[]
+  activity       Boolean      @default(false)
+  message        String?
+  savedById      String
+  savedBy        User         @relation(fields: [savedById], references: [id])
+  savedAt        DateTime     @default(now())
+
+  @@map("AnnouncementVersions")
+}
+
+// Shared reference list — same role Staff's own Team directory will grow
+// into (specs/DATA_SCHEMA.md, "Team, Company"), Announcements is just the
+// first consumer. admin/editor manage it, everyone reads it.
+model Team {
+  id            String             @id @default(cuid())
+  name          String             @unique
+  createdAt     DateTime           @default(now())
+  users         User[]
+  announcements AnnouncementTeam[]
+
+  @@map("Teams")
 }
 
 // Granular RBAC — no fixed admin/editor/reader tiers. A Role is just a
@@ -41,6 +114,14 @@ model User {
   roleId    String
   role      Role     @relation(fields: [roleId], references: [id])
   createdAt DateTime @default(now())
+
+  // Nullable: a user with no team only ever sees visibleToAll content —
+  // same "not every account has to be slotted in" allowance the old FSA
+  // schema gave StaffMember.team.
+  teamId                String?
+  team                  Team?                  @relation(fields: [teamId], references: [id])
+  announcementReads     AnnouncementRead[]
+  announcementVersions  AnnouncementVersion[]
 
   @@map("Users")
 }

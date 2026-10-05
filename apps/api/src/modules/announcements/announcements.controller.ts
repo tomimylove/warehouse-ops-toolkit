@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUserService } from '../auth/current-user.service';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermission } from '../auth/require-permission.decorator';
@@ -16,14 +16,16 @@ export class AnnouncementsController {
 
   @Get()
   @RequirePermission('announcements:view')
-  list() {
-    return this.announcements.list();
+  async list() {
+    const user = await this.currentUser.get();
+    return this.announcements.list(user);
   }
 
   @Get(':id')
   @RequirePermission('announcements:view')
-  get(@Param('id') id: string) {
-    return this.announcements.get(id);
+  async get(@Param('id') id: string) {
+    const user = await this.currentUser.get();
+    return this.announcements.get(id, user);
   }
 
   @Post()
@@ -39,18 +41,45 @@ export class AnnouncementsController {
   @Patch(':id')
   @RequirePermission('announcements:edit')
   async update(@Param('id') id: string, @Body() dto: UpdateAnnouncementDto) {
-    if (dto.pinned !== undefined) {
-      const user = await this.currentUser.get();
-      if (!user.permissions.includes('announcements:pin')) {
-        throw new ForbiddenException('Missing permission: announcements:pin');
-      }
+    const user = await this.currentUser.get();
+    if (dto.pinned !== undefined && !user.permissions.includes('announcements:pin')) {
+      throw new ForbiddenException('Missing permission: announcements:pin');
     }
-    return this.announcements.update(id, dto);
+    return this.announcements.update(id, dto, user.id);
   }
 
   @Delete(':id')
   @RequirePermission('announcements:delete')
   remove(@Param('id') id: string) {
     return this.announcements.remove(id);
+  }
+
+  @Post(':id/read')
+  @HttpCode(204)
+  @RequirePermission('announcements:view')
+  async markRead(@Param('id') id: string) {
+    const user = await this.currentUser.get();
+    await this.announcements.markRead(id, user.id);
+  }
+
+  @Post('mark-all-read')
+  @HttpCode(204)
+  @RequirePermission('announcements:view')
+  async markAllRead() {
+    const user = await this.currentUser.get();
+    await this.announcements.markAllRead(user);
+  }
+
+  @Get(':id/versions')
+  @RequirePermission('announcements:edit')
+  listVersions(@Param('id') id: string) {
+    return this.announcements.listVersions(id);
+  }
+
+  @Post(':id/versions/:versionId/restore')
+  @RequirePermission('announcements:edit')
+  async restoreVersion(@Param('id') id: string, @Param('versionId') versionId: string) {
+    const user = await this.currentUser.get();
+    return this.announcements.restoreVersion(id, versionId, user.id);
   }
 }

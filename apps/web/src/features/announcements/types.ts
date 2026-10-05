@@ -1,3 +1,8 @@
+export interface Team {
+  id: string;
+  name: string;
+}
+
 export interface Announcement {
   id: string;
   title: string;
@@ -5,4 +10,18 @@ export interface Announcement {
   pinned: boolean;
   authorId: string;
   createdAt: string;
+  updatedAt: string;
+  visibleToAll: boolean;
+  teams: Team[];
+  isRead: boolean;
+}
+
+export interface AnnouncementVersion {
+  id: string;
+  snapshot: { title: string; body: string; pinned: boolean; visibleToAll: boolean; teamIds: string[] } | null;
+  changes: string[];
+  activity: boolean;
+  message: string | null;
+  savedAt: string;
+  savedBy: { id: string; name: string };
 }

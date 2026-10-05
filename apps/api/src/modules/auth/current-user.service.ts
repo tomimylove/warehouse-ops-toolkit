@@ -6,6 +6,7 @@ export interface CurrentUser {
   id: string;
   email: string;
   name: string;
+  teamId: string | null;
   permissions: string[];
 }
 
@@ -34,6 +35,7 @@ export class CurrentUserService {
       id: identity.id,
       email: identity.email,
       name: identity.name,
+      teamId: identity.teamId,
       permissions: role.permissions.map((p) => p.key),
     };
   }
