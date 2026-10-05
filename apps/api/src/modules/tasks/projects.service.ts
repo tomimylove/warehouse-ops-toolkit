@@ -9,14 +9,14 @@ export class ProjectsService {
   list() {
     return this.prisma.project.findMany({
       orderBy: { createdAt: 'asc' },
-      include: { boards: { orderBy: { order: 'asc' } } },
+      include: { boards: { orderBy: { order: 'asc' }, include: { columns: { orderBy: { order: 'asc' } } } } },
     });
   }
 
   async get(id: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
-      include: { boards: { orderBy: { order: 'asc' } } },
+      include: { boards: { orderBy: { order: 'asc' }, include: { columns: { orderBy: { order: 'asc' } } } } },
     });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
     return project;

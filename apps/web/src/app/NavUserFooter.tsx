@@ -33,7 +33,7 @@ export function NavUserFooter() {
         <SidebarMenuItem className="flex items-center gap-1">
           <NavLink
             to="/profile"
-            className="hover:bg-sidebar-accent flex min-w-0 flex-1 items-center gap-2 rounded-md p-2 text-left"
+            className="hover:bg-sidebar-accent flex min-w-0 flex-1 items-center gap-2 rounded-md p-2 text-left group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2!"
           >
             <Avatar className="size-6 rounded-md">
               <AvatarFallback className="rounded-md text-xs">{initials(user.name)}</AvatarFallback>

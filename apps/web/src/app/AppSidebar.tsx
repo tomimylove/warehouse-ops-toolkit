@@ -82,7 +82,11 @@ export function AppSidebar() {
                       <SidebarMenuItem key={item.path}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <SidebarMenuButton isActive={groupActive} tooltip={item.label}>
+                            <SidebarMenuButton
+                              isActive={groupActive}
+                              tooltip={item.label}
+                              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            >
                               <Icon />
                               <span>{item.label}</span>
                             </SidebarMenuButton>
@@ -104,7 +108,11 @@ export function AppSidebar() {
                     <Collapsible key={item.path} defaultOpen={groupActive} className="group/collapsible">
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton isActive={groupActive} tooltip={item.label}>
+                          <SidebarMenuButton
+                            isActive={groupActive}
+                            tooltip={item.label}
+                            className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          >
                             <Icon />
                             <span>{item.label}</span>
                             <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />

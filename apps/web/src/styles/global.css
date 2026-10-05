@@ -1,13 +1,13 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/inter";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Inter Variable', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -123,45 +123,37 @@
    hover states stay neutral, same as the FSA version did (buttons/active
    nav item were the only blue, not every hover). */
 :root[data-theme-color='fsa'] {
-  --primary: #2563eb;
+  --primary: #4a72b0;
   --primary-foreground: #ffffff;
-  --ring: #2563eb;
-  --sidebar-primary: #2563eb;
+  --ring: #4a72b0;
+  --sidebar-primary: #4a72b0;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: color-mix(in srgb, #2563eb 12%, var(--sidebar));
-  --sidebar-accent-foreground: #2563eb;
-  --sidebar-ring: #2563eb;
+  --sidebar-ring: #4a72b0;
 }
 :root[data-theme-color='fsa'].dark {
-  --primary: #5b93ff;
+  --primary: #8aa9d6;
   --primary-foreground: #0e1014;
-  --ring: #5b93ff;
-  --sidebar-primary: #5b93ff;
+  --ring: #8aa9d6;
+  --sidebar-primary: #8aa9d6;
   --sidebar-primary-foreground: #0e1014;
-  --sidebar-accent: color-mix(in srgb, #5b93ff 16%, var(--sidebar));
-  --sidebar-accent-foreground: #5b93ff;
-  --sidebar-ring: #5b93ff;
+  --sidebar-ring: #8aa9d6;
 }
 
 :root[data-theme-color='violet'] {
-  --primary: #7c3aed;
+  --primary: #8c67b3;
   --primary-foreground: #ffffff;
-  --ring: #7c3aed;
-  --sidebar-primary: #7c3aed;
+  --ring: #8c67b3;
+  --sidebar-primary: #8c67b3;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: color-mix(in srgb, #7c3aed 12%, var(--sidebar));
-  --sidebar-accent-foreground: #7c3aed;
-  --sidebar-ring: #7c3aed;
+  --sidebar-ring: #8c67b3;
 }
 :root[data-theme-color='violet'].dark {
-  --primary: #a78bfa;
+  --primary: #b7a0d9;
   --primary-foreground: #1e1033;
-  --ring: #a78bfa;
-  --sidebar-primary: #a78bfa;
+  --ring: #b7a0d9;
+  --sidebar-primary: #b7a0d9;
   --sidebar-primary-foreground: #1e1033;
-  --sidebar-accent: color-mix(in srgb, #a78bfa 16%, var(--sidebar));
-  --sidebar-accent-foreground: #a78bfa;
-  --sidebar-ring: #a78bfa;
+  --sidebar-ring: #b7a0d9;
 }
 
 @layer base {
