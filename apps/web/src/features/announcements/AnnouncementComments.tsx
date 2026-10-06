@@ -63,19 +63,32 @@ function EmojiGrid({ onPick }: { onPick: (emoji: string) => void }) {
 
 type ResolvedReactions = Record<string, { id: string; name: string }[]>;
 
+function ReactorList({ entries }: { entries: [string, { id: string; name: string }[]][] }) {
+  return (
+    <div className="space-y-1">
+      {entries.map(([emoji, users]) => (
+        <div key={emoji} className="flex items-center gap-1.5">
+          <span>{emoji}</span>
+          <span className="text-xs">{users.map((u) => u.name).join(', ')}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // One combined badge for the whole message — every distinct emoji used
 // once each, plus a single total count (not a count per emoji, which
 // read as cluttered) — embedded at the bubble's bottom-right corner.
-// Only ~20% of the badge's height overlaps into the bubble (-bottom-5);
-// the rest hangs below it, WhatsApp-style. Hover/click for who reacted
-// with what; click also reopens the picker to add/change your own reaction.
+// Only ~20% of the badge's height overlaps into the bubble (-bottom-4);
+// the rest hangs below it, WhatsApp-style — the Bubble wrapper's mb-6
+// leaves enough clearance for that overhang before the next message.
+// Hover or click shows who reacted with what (not the emoji picker —
+// adding your own reaction is the hover toolbar's React button).
 function ReactionBar({
   reactions,
-  onToggle,
   onHoverChange,
 }: {
   reactions: ResolvedReactions;
-  onToggle: (emoji: string) => void;
   onHoverChange: (hovering: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -92,7 +105,7 @@ function ReactionBar({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0, opacity: 0 }}
         transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
-        className="absolute -bottom-5 right-1"
+        className="absolute -bottom-4 right-1"
         onMouseEnter={() => onHoverChange(true)}
         onMouseLeave={() => onHoverChange(false)}
       >
@@ -111,24 +124,12 @@ function ReactionBar({
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto" align="center">
-                <EmojiGrid
-                  onPick={(emoji) => {
-                    onToggle(emoji);
-                    setOpen(false);
-                  }}
-                />
+                <ReactorList entries={entries} />
               </PopoverContent>
             </Popover>
           </TooltipTrigger>
           <TooltipContent>
-            <div className="space-y-1">
-              {entries.map(([emoji, users]) => (
-                <div key={emoji} className="flex items-center gap-1.5">
-                  <span>{emoji}</span>
-                  <span className="text-xs">{users.map((u) => u.name).join(', ')}</span>
-                </div>
-              ))}
-            </div>
+            <ReactorList entries={entries} />
           </TooltipContent>
         </Tooltip>
       </motion.div>
@@ -163,7 +164,7 @@ function Bubble({
   const [reactionHover, setReactionHover] = useState(false);
 
   return (
-    <div className={cn('mb-4 flex flex-col', own ? 'items-end' : 'items-start')}>
+    <div className={cn('mb-6 flex flex-col', own ? 'items-end' : 'items-start')}>
       <ChatBubble variant={own ? 'sent' : 'received'}>
         <ChatBubbleAvatar fallback={initials(comment.author.name)} />
         <div className="flex min-w-0 flex-col">
@@ -182,7 +183,7 @@ function Bubble({
               meta={formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
             />
 
-            <ReactionBar reactions={comment.reactions} onToggle={onToggleReaction} onHoverChange={setReactionHover} />
+            <ReactionBar reactions={comment.reactions} onHoverChange={setReactionHover} />
 
             <ChatBubbleActionWrapper
               className={cn((pickerOpen || menuOpen) && 'opacity-100', reactionHover && '!opacity-0')}
