@@ -57,7 +57,9 @@ export const navItems: NavItem[] = [
       { path: '/operations/links', label: 'Links' },
     ],
   },
-  { path: '/tasks', label: 'Tasks', status: 'placeholder', icon: ListChecks, permission: 'tasks:view' },
+  // Nav label only — route, module, DTOs, and the tasks:* permission keys
+  // stay as-is (user's call: rename the sidebar text, not the plumbing).
+  { path: '/tasks', label: 'Projects', status: 'placeholder', icon: ListChecks, permission: 'tasks:view' },
   {
     path: '/knowledge-base',
     label: 'Knowledge base',

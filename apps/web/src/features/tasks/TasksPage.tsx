@@ -60,7 +60,7 @@ export function TasksPage() {
 
   return (
     <section className="mx-auto max-w-4xl">
-      <PageHeader title="Tasks" subtitle="Project → Board → Column → Task, same rows power Board/Gantt/Calendar." />
+      <PageHeader title="Projects" subtitle="Project → Board → Column → Task, same rows power Board/Gantt/Calendar." />
 
       {!loading && projects.length === 0 && (
         <div className="space-y-4">
