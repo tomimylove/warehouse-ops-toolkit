@@ -11,7 +11,12 @@ services:
     # closer, differently-routed region.
     region: singapore
     buildCommand: npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build:api
-    startCommand: node apps/api/dist/main.js
+    # TEMPORARY — swapped in to diagnose the P1001 "can't reach database
+    # server" failures (DNS/SSL fixes didn't change anything, and region
+    # turned out un-editable on an existing service, so it was never
+    # actually tested). Revert to `node apps/api/dist/main.js` once the
+    # probe's logs are read.
+    startCommand: node apps/api/scripts/db-probe.js
     envVars:
       - key: NODE_VERSION
         value: 20.17.0
