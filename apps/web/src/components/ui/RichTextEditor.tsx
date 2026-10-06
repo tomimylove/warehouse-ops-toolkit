@@ -221,8 +221,13 @@ export function RichTextToolbar({ editor, className }: { editor: Editor; classNa
 // code-block styling, so bullet/numbered lists rendered with no
 // list-style/indent (looked broken) and <pre> kept the browser's default
 // white-space: pre (no wrap), collapsing code blocks onto one long line.
+// [&_pre]:text-foreground / [&_code]:text-foreground are load-bearing, not
+// decoration — bg-muted is a fixed light/dark-neutral chip, but without an
+// explicit text color code blocks inherit whatever the surrounding bubble
+// set (e.g. white text-primary-foreground in a "sent" chat bubble), which
+// read as white-on-light-gray and was unreadable.
 export const richTextContentClass =
-  '[&_p]:m-0 [&_p]:mb-2 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:p-2 [&_pre]:text-xs [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-1';
+  '[&_p]:m-0 [&_p]:mb-2 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_pre]:bg-muted [&_pre]:text-foreground [&_pre]:rounded-md [&_pre]:p-2 [&_pre]:text-xs [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_code]:bg-muted [&_code]:text-foreground [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-1';
 
 // Everyday rich-text field: headings, formatting marks, lists, quotes,
 // code blocks, links, undo/redo — enough for an announcement body without

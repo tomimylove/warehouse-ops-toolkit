@@ -257,7 +257,7 @@ function Bubble({
   );
 }
 
-export function AnnouncementComments({ announcementId }: { announcementId: string }) {
+export function AnnouncementComments({ announcementId, className }: { announcementId: string; className?: string }) {
   const { user, has } = usePermissions();
   const [comments, setComments] = useState<AnnouncementComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -289,11 +289,14 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
     };
   }, [announcementId]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [comments.length]);
-
   const hasText = !isEmptyHtml(draft);
+
+  function scrollToBottom() {
+    // Only called after the current user's own post/reply — opening an
+    // announcement (or switching to one) should land on the discussion
+    // header, not jump straight to the bottom of a long thread.
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: 'nearest' }));
+  }
 
   function clearComposer() {
     setDraft('');
@@ -329,6 +332,7 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
         const comment = await announcementsApi.createComment(announcementId, draft, replyTo?.id);
         setComments((prev) => [...prev, comment]);
         setReplyTo(null);
+        scrollToBottom();
       }
       clearComposer();
     } finally {
@@ -352,35 +356,42 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
   }
 
   return (
-    <div className="border-border mt-6 border-t pt-4">
-      <h3 className="mb-3 text-sm font-medium">
-        Discussion{comments.length > 0 && <span className="text-muted-foreground"> ({comments.length})</span>}
-      </h3>
+    // flex column with its own scroll region for the thread and a pinned
+    // footer for the composer below it — previously the composer lived at
+    // the bottom of the same long scroll as the thread, so on any decent
+    // discussion you had to scroll past every message to find it (same for
+    // reopening it mid-edit). Now it's always on screen.
+    <div className={cn('border-border flex min-h-0 flex-col border-t', className)}>
+      <div className="min-h-0 flex-1 overflow-y-auto pt-4">
+        <h3 className="mb-3 text-sm font-medium">
+          Discussion{comments.length > 0 && <span className="text-muted-foreground"> ({comments.length})</span>}
+        </h3>
 
-      {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
+        {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
 
-      {!loading && (
-        <div className="flex flex-col">
-          {comments.map((c) => (
-            <Bubble
-              key={c.id}
-              comment={c}
-              own={c.author.id === user?.id}
-              canDelete={c.author.id === user?.id || has('announcements:delete')}
-              onDelete={() => handleDelete(c.id)}
-              onEditRequest={() => startEdit(c)}
-              onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
-              onReply={() => startReply(c)}
-            />
-          ))}
-          <div ref={bottomRef} />
-        </div>
-      )}
+        {!loading && (
+          <div className="flex flex-col">
+            {comments.map((c) => (
+              <Bubble
+                key={c.id}
+                comment={c}
+                own={c.author.id === user?.id}
+                canDelete={c.author.id === user?.id || has('announcements:delete')}
+                onDelete={() => handleDelete(c.id)}
+                onEditRequest={() => startEdit(c)}
+                onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
+                onReply={() => startReply(c)}
+              />
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        )}
+      </div>
 
       {/* Single bordered container for the whole composer — the toolbar flyout
           and the icon row both live inside it, so nothing looks bolted on
           and nothing (send/mic included) pokes out past the border. */}
-      <div className="border-input focus-within:border-ring mt-3 overflow-hidden rounded-2xl border transition-colors">
+      <div className="border-input focus-within:border-ring mt-3 shrink-0 overflow-hidden rounded-2xl border transition-colors">
         <AnimatePresence initial={false}>
           {(replyTo || editingComment) && (
             <motion.div

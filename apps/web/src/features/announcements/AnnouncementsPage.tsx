@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { History, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react';
+import { History, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { announcementsApi } from './api';
 import { coverFor } from './covers';
@@ -62,8 +62,10 @@ export function AnnouncementsPage() {
       setSelectedId((prev) => {
         if (prev && list.some((a) => a.id === prev)) return prev;
         // Nothing selected (or the selection vanished) — default to the
-        // newest record rather than leaving the reading pane empty.
-        return list[0]?.id ?? null;
+        // oldest unread one, so working through the backlog starts at the
+        // start of it; once everything's read, fall back to the newest.
+        const unread = [...list].filter((a) => !a.isRead).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        return unread[0]?.id ?? list[0]?.id ?? null;
       });
     } catch {
       setError('Could not load announcements. Is the API running?');
@@ -93,6 +95,13 @@ export function AnnouncementsPage() {
   }, [items, teamFilter, query]);
   const unreadCount = items.filter((a) => !a.isRead).length;
   const selected = items.find((a) => a.id === selectedId) ?? null;
+  const readerRef = useRef<HTMLDivElement>(null);
+
+  // Switching announcements shouldn't carry over the previous one's scroll
+  // position — always land back on the title/body, not mid-thread.
+  useEffect(() => {
+    readerRef.current?.scrollTo({ top: 0 });
+  }, [selectedId]);
 
   async function select(item: Announcement) {
     setSelectedId(item.id);
@@ -211,10 +220,12 @@ export function AnnouncementsPage() {
           </DropdownMenu>
         )}
 
-        {unreadCount > 0 && (
+        {unreadCount > 0 ? (
           <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={handleMarkAllRead}>
             Mark all as read
           </Button>
+        ) : (
+          items.length > 0 && <span className="text-muted-foreground ml-auto text-xs">All caught up ✓</span>
         )}
       </div>
 
@@ -244,8 +255,18 @@ export function AnnouncementsPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search announcements…"
-                className="h-8 pl-8 text-sm"
+                className="h-8 pr-7 pl-8 text-sm"
               />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded-full"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
             <ul className="flex flex-col gap-1 overflow-y-auto">
               {filtered.map((item) => {
@@ -282,9 +303,14 @@ export function AnnouncementsPage() {
             </ul>
           </div>
 
-          <div className="min-h-0 overflow-y-auto">
+          <div className="flex min-h-0 flex-col">
             {selected && (
-              <div>
+              <>
+                {/* Capped + independently scrollable so a long announcement
+                    body can never push the composer below the fold — the
+                    discussion pane under it always keeps its share of the
+                    column. */}
+                <div className="max-h-[42%] shrink-0 overflow-y-auto" ref={readerRef}>
                 <h2 className="text-lg font-semibold">{selected.title}</h2>
 
                 <div className="mt-2 flex items-center justify-between gap-2">
@@ -335,9 +361,10 @@ export function AnnouncementsPage() {
                 {/* Tiptap output is our own sanitized rich text — safe to render.
                     If this ever accepts arbitrary user HTML from elsewhere, sanitize first. */}
                 <div className={`mt-4 text-sm ${richTextContentClass}`} dangerouslySetInnerHTML={{ __html: selected.body }} />
+                </div>
 
-                <AnnouncementComments announcementId={selected.id} />
-              </div>
+                <AnnouncementComments announcementId={selected.id} className="min-h-0 flex-1" />
+              </>
             )}
           </div>
 
