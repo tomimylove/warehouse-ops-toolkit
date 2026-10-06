@@ -8,6 +8,7 @@ import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { ToggleReactionDto } from './dto/toggle-reaction.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Controller('announcements')
 @UseGuards(PermissionsGuard)
@@ -98,6 +99,13 @@ export class AnnouncementsController {
   async createComment(@Param('id') id: string, @Body() dto: CreateCommentDto) {
     const user = await this.currentUser.get();
     return this.comments.create(id, user.id, dto.text, dto.replyToId);
+  }
+
+  @Patch(':id/comments/:commentId')
+  @RequirePermission('announcements:view')
+  async updateComment(@Param('commentId') commentId: string, @Body() dto: UpdateCommentDto) {
+    const user = await this.currentUser.get();
+    return this.comments.update(commentId, user.id, dto.text);
   }
 
   @Delete(':id/comments/:commentId')

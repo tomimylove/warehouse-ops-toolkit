@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { Mic, Paperclip, Reply, SendHorizontal, SmilePlus, Trash2, Type, X } from 'lucide-react';
+import { Mic, MoreHorizontal, Paperclip, Pencil, Reply, SendHorizontal, SmilePlus, Trash2, Type, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
   ChatBubble,
@@ -33,6 +34,10 @@ function plainSnippet(html: string, max = 80) {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+function isEmptyHtml(html: string) {
+  return html.replace(/<[^>]+>/g, '').trim().length === 0;
+}
+
 const EMOJI = ['👍', '❤️', '😂', '🎉', '😮', '🙏', '👏', '🔥', '✅', '😊', '🤔', '👀'];
 const MAX_REACTIONS_SHOWN = 3;
 
@@ -55,16 +60,15 @@ function EmojiGrid({ onPick }: { onPick: (emoji: string) => void }) {
 
 // A single pill housing every reaction on the comment (grouped by emoji,
 // each with its own count), not one pill per emoji — matches the
-// Discord/YouGile-style reaction bar, not a bare like counter.
+// Discord/YouGile-style reaction bar, not a bare like counter. Always
+// sits at the bubble's bottom-right, clear of the text below it.
 function ReactionBar({
   reactions,
   userId,
-  own,
   onToggle,
 }: {
   reactions: Record<string, string[]>;
   userId?: string;
-  own: boolean;
   onToggle: (emoji: string) => void;
 }) {
   const entries = Object.entries(reactions).filter(([, users]) => users.length > 0);
@@ -79,7 +83,7 @@ function ReactionBar({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
           transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
-          className={cn('bg-background border-border absolute -bottom-3 flex items-center gap-1 rounded-full border px-1.5 py-0.5 shadow-sm', own ? 'left-1.5' : 'right-1.5')}
+          className="bg-background border-border absolute -bottom-4 right-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 shadow-sm"
         >
           {shown.map(([emoji, users]) => (
             <button
@@ -107,6 +111,7 @@ function Bubble({
   canDelete,
   userId,
   onDelete,
+  onEdit,
   onToggleReaction,
   onReply,
 }: {
@@ -115,10 +120,31 @@ function Bubble({
   canDelete: boolean;
   userId?: string;
   onDelete: () => void;
+  onEdit: (text: string) => Promise<void>;
   onToggleReaction: (emoji: string) => void;
   onReply: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState(comment.text);
+  const [saving, setSaving] = useState(false);
+
+  function startEdit() {
+    setEditDraft(comment.text);
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    if (isEmptyHtml(editDraft) || saving) return;
+    setSaving(true);
+    try {
+      await onEdit(editDraft);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className={cn('mb-4 flex flex-col', own ? 'items-end' : 'items-start')}>
@@ -128,47 +154,82 @@ function Bubble({
           {!own && <span className="text-muted-foreground mb-1 px-1 text-xs font-medium">{comment.author.name}</span>}
           <div className="relative">
             {comment.replyTo && (
-              <div className={cn('border-muted-foreground/30 mb-1 rounded-md border-l-2 px-2 py-1 text-xs opacity-70', own ? 'bg-primary/10' : 'bg-muted/60')}>
-                <div className="font-medium">{comment.replyTo.author.name}</div>
-                <div className="truncate">{plainSnippet(comment.replyTo.text, 60)}</div>
+              <div className="bg-muted border-primary/60 mb-1 rounded-md border-l-[3px] px-2.5 py-1.5 text-xs">
+                <div className="text-primary font-medium">{comment.replyTo.author.name}</div>
+                <div className="text-muted-foreground truncate">{plainSnippet(comment.replyTo.text, 60)}</div>
               </div>
             )}
-            <ChatBubbleMessage variant={own ? 'sent' : 'received'} html={comment.text} />
-            <ReactionBar reactions={comment.reactions} userId={userId} own={own} onToggle={onToggleReaction} />
-            <ChatBubbleActionWrapper variant={own ? 'sent' : 'received'}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <ChatBubbleAction icon={<Reply className="size-3.5" />} onClick={onReply} />
-                </TooltipTrigger>
-                <TooltipContent>Reply</TooltipContent>
-              </Tooltip>
-              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+
+            {editing ? (
+              <div className="bg-muted min-w-[220px] rounded-2xl p-2">
+                <RichTextEditor value={editDraft} onChange={setEditDraft} toolbar={false} minHeight="20px" resizable={false} autofocus />
+                <div className="mt-1.5 flex justify-end gap-1.5">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" size="sm" onClick={saveEdit} disabled={saving || isEmptyHtml(editDraft)}>
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <ChatBubbleMessage variant={own ? 'sent' : 'received'} html={comment.text} />
+            )}
+
+            <ReactionBar reactions={comment.reactions} userId={userId} onToggle={onToggleReaction} />
+
+            {!editing && (
+              <ChatBubbleActionWrapper>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <ChatBubbleAction icon={<SmilePlus className="size-3.5" />} />
-                    </PopoverTrigger>
+                    <ChatBubbleAction icon={<Reply className="size-3.5" />} onClick={onReply} />
                   </TooltipTrigger>
-                  <TooltipContent>React</TooltipContent>
+                  <TooltipContent>Reply</TooltipContent>
                 </Tooltip>
-                <PopoverContent className="w-auto" align="center">
-                  <EmojiGrid
-                    onPick={(emoji) => {
-                      onToggleReaction(emoji);
-                      setPickerOpen(false);
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-              {canDelete && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <ChatBubbleAction icon={<Trash2 className="size-3.5" />} onClick={onDelete} />
-                  </TooltipTrigger>
-                  <TooltipContent>Delete</TooltipContent>
-                </Tooltip>
-              )}
-            </ChatBubbleActionWrapper>
+                <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <ChatBubbleAction icon={<SmilePlus className="size-3.5" />} />
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>React</TooltipContent>
+                  </Tooltip>
+                  <PopoverContent className="w-auto" align="center">
+                    <EmojiGrid
+                      onPick={(emoji) => {
+                        onToggleReaction(emoji);
+                        setPickerOpen(false);
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {(own || canDelete) && (
+                  <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <ChatBubbleAction icon={<MoreHorizontal className="size-3.5" />} />
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>More</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end">
+                      {own && (
+                        <DropdownMenuItem onClick={startEdit}>
+                          <Pencil className="size-3.5" /> Edit
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                          <Trash2 className="size-3.5" /> Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </ChatBubbleActionWrapper>
+            )}
           </div>
         </div>
       </ChatBubble>
@@ -214,11 +275,7 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
     bottomRef.current?.scrollIntoView({ block: 'nearest' });
   }, [comments.length]);
 
-  function isEmpty(html: string) {
-    return html.replace(/<[^>]+>/g, '').trim().length === 0;
-  }
-
-  const hasText = !isEmpty(draft);
+  const hasText = !isEmptyHtml(draft);
 
   async function handlePost() {
     if (!hasText || posting) return;
@@ -237,6 +294,11 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
   async function handleDelete(commentId: string) {
     await announcementsApi.removeComment(announcementId, commentId);
     setComments((prev) => prev.filter((c) => c.id !== commentId));
+  }
+
+  async function handleEdit(commentId: string, text: string) {
+    const updated = await announcementsApi.updateComment(announcementId, commentId, text);
+    setComments((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
   }
 
   async function handleToggleReaction(commentId: string, emoji: string) {
@@ -267,6 +329,7 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
               canDelete={c.author.id === user?.id || has('announcements:delete')}
               userId={user?.id}
               onDelete={() => handleDelete(c.id)}
+              onEdit={(text) => handleEdit(c.id, text)}
               onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
               onReply={() => setReplyTo(c)}
             />

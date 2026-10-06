@@ -37,6 +37,11 @@ export const announcementsApi = {
       method: 'POST',
       body: JSON.stringify({ text, replyToId }),
     }),
+  updateComment: (id: string, commentId: string, text: string) =>
+    request<AnnouncementComment>(`/announcements/${id}/comments/${commentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ text }),
+    }),
   removeComment: (id: string, commentId: string) =>
     request<void>(`/announcements/${id}/comments/${commentId}`, { method: 'DELETE' }),
   toggleCommentReaction: (id: string, commentId: string, emoji: string) =>

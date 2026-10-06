@@ -38,6 +38,21 @@ export class AnnouncementCommentsService {
     await this.prisma.announcementComment.delete({ where: { id: commentId } });
   }
 
+  // Editing is author-only — unlike delete, there's no admin override:
+  // rewriting someone else's words isn't a moderation action.
+  async update(commentId: string, userId: string, text: string) {
+    const comment = await this.prisma.announcementComment.findUnique({ where: { id: commentId } });
+    if (!comment) throw new NotFoundException(`Comment ${commentId} not found`);
+    if (comment.authorId !== userId) {
+      throw new ForbiddenException('Only the comment author can edit this comment');
+    }
+    return this.prisma.announcementComment.update({
+      where: { id: commentId },
+      data: { text },
+      include,
+    });
+  }
+
   // reactions is a { emoji: userId[] } map — toggling removes the user from
   // that emoji's list (and drops the key once empty) or adds them to it.
   async toggleReaction(commentId: string, userId: string, emoji: string) {
