@@ -34,4 +34,9 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   boards: Board[];
+  // Mini-dashboard counts from the list endpoint — top-level tasks only
+  // (subtasks excluded), "done" matched by column name (see
+  // projects.service.ts), not a stored flag.
+  taskCount: number;
+  doneCount: number;
 }

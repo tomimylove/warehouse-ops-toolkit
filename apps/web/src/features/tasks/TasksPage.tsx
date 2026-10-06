@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { KanbanSquare, Plus } from 'lucide-react';
 import { PageHeader, EmptyState, Button, Input } from '../../components/ui';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -15,6 +16,54 @@ import { tasksApi } from './api';
 import { BoardView } from './BoardView';
 import { TaskDrawer } from './TaskDrawer';
 import type { Project } from './types';
+
+// The project gallery's mini-dashboard card — boards/task counts and a
+// completion bar from the list endpoint's aggregates (projects.service.ts),
+// "Done" meaning the default Done column, not a stored flag.
+function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
+  const pct = project.taskCount > 0 ? Math.round((project.doneCount / project.taskCount) * 100) : 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="border-border hover:border-primary/50 hover:bg-muted/40 flex flex-col items-start rounded-lg border p-4 text-left transition-colors"
+    >
+      <div className="flex w-full items-start justify-between gap-2">
+        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md">
+          <KanbanSquare className="text-muted-foreground size-4" />
+        </div>
+        <span className="text-muted-foreground shrink-0 text-xs">
+          {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
+        </span>
+      </div>
+
+      <h3 className="mt-3 truncate text-sm font-medium">{project.name}</h3>
+
+      <div className="text-muted-foreground mt-1 flex items-center gap-3 text-xs">
+        <span>
+          {project.boards.length} board{project.boards.length !== 1 ? 's' : ''}
+        </span>
+        <span>
+          {project.taskCount} task{project.taskCount !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {project.taskCount > 0 ? (
+        <div className="mt-3 w-full">
+          <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+            <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="text-muted-foreground mt-1 text-xs">
+            {project.doneCount}/{project.taskCount} done · {pct}%
+          </div>
+        </div>
+      ) : (
+        <p className="text-muted-foreground mt-3 text-xs">No tasks yet</p>
+      )}
+    </button>
+  );
+}
 
 export function TasksPage() {
   const { projectId } = useParams<{ projectId?: string }>();
@@ -70,7 +119,10 @@ export function TasksPage() {
   const activeBoard = activeProject?.boards.find((b) => b.id === activeBoardId) ?? null;
 
   return (
-    <section className="mx-auto max-w-4xl">
+    // Same mx-auto + max-w-[1360px] pattern as Announcements — the
+    // previous max-w-4xl, centered in a much wider content area, left a
+    // lopsided gap on the left that didn't match any other page.
+    <section className="mx-auto w-full max-w-[1360px]">
       <Breadcrumb className="mb-2">
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -96,23 +148,17 @@ export function TasksPage() {
         subtitle="Project → Board → Column → Task, same rows power Board/Gantt/Calendar."
       />
 
-      {!loading && projects.length === 0 && (
+      {!loading && !activeProject && (
         <div className="space-y-4">
-          <EmptyState message="No projects yet — create the first one." />
-          <form onSubmit={createProject} className="flex max-w-sm gap-2">
-            <Input
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              placeholder="Project name"
-            />
-            <Button type="submit">Create</Button>
-          </form>
-        </div>
-      )}
-
-      {!loading && projects.length > 0 && !activeProject && (
-        <div className="space-y-4">
-          <EmptyState message="Pick a project from the sidebar, or create a new one." />
+          {projects.length === 0 ? (
+            <EmptyState message="No projects yet — create the first one." />
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+              {projects.map((p) => (
+                <ProjectCard key={p.id} project={p} onOpen={() => navigate(`/tasks/${p.id}`)} />
+              ))}
+            </div>
+          )}
           <form onSubmit={createProject} className="flex max-w-sm gap-2">
             <Input
               value={newProjectName}
