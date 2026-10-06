@@ -17,14 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import {
-  ChatBubble,
-  ChatBubbleAction,
-  ChatBubbleActionWrapper,
-  ChatBubbleAvatar,
-  ChatBubbleMessage,
-  ChatBubbleTimestamp,
-} from '@/components/ui/chat-bubble';
+import { ChatBubble, ChatBubbleAction, ChatBubbleActionWrapper, ChatBubbleAvatar, ChatBubbleMessage } from '@/components/ui/chat-bubble';
 import { Button, RichTextEditor, RichTextToolbar } from '../../components/ui';
 import { usePermissions } from '../../app/PermissionsContext';
 import { announcementsApi } from './api';
@@ -68,54 +61,56 @@ function EmojiGrid({ onPick }: { onPick: (emoji: string) => void }) {
   );
 }
 
-// A single pill housing every reaction on the comment (grouped by emoji,
-// each with its own count), not one pill per emoji — matches the
-// Discord/YouGile-style reaction bar, not a bare like counter. Sits
-// embedded at the bubble's bottom-right corner (half overlapping it),
-// not in normal flow — flow-positioned reactions pushed the timestamp
-// down and broke its alignment with the avatar below.
-function ReactionBar({
-  reactions,
-  userId,
-  onToggle,
-}: {
-  reactions: Record<string, string[]>;
-  userId?: string;
-  onToggle: (emoji: string) => void;
-}) {
+// One combined badge for the whole message — every distinct emoji used
+// once each, plus a single total count (not a count per emoji, which
+// read as cluttered) — embedded at the bubble's bottom-right corner,
+// overlapping it only slightly. Hover for the per-emoji breakdown;
+// click reopens the picker to add/change your own reaction.
+function ReactionBar({ reactions, onToggle }: { reactions: Record<string, string[]>; onToggle: (emoji: string) => void }) {
+  const [open, setOpen] = useState(false);
   const entries = Object.entries(reactions).filter(([, users]) => users.length > 0);
-  const shown = entries.slice(0, MAX_REACTIONS_SHOWN);
-  const extra = entries.length - shown.length;
+  if (entries.length === 0) return null;
+
+  const shownEmoji = entries.slice(0, MAX_REACTIONS_SHOWN).map(([emoji]) => emoji);
+  const total = entries.reduce((sum, [, users]) => sum + users.length, 0);
+  const breakdown = entries.map(([emoji, users]) => `${emoji} ${users.length}`).join('   ');
 
   return (
     <AnimatePresence>
-      {entries.length > 0 && (
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0, opacity: 0 }}
-          transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
-          className="bg-background border-border absolute -bottom-2.5 right-1 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-sm shadow-sm"
-        >
-          {shown.map(([emoji, users]) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => onToggle(emoji)}
-              className={cn(
-                'flex items-center gap-0.5 rounded-full px-0.5',
-                userId && users.includes(userId) && 'ring-primary/60 ring-1',
-              )}
-            >
-              <motion.span key={users.length} initial={{ scale: 1.4 }} animate={{ scale: 1 }} className="leading-none">
-                {emoji}
-              </motion.span>
-              <span className="text-muted-foreground text-xs">{users.length}</span>
-            </button>
-          ))}
-          {extra > 0 && <span className="text-muted-foreground text-xs">+{extra}</span>}
-        </motion.div>
-      )}
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0, opacity: 0 }}
+        transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
+        className="absolute -bottom-1.5 right-1"
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="bg-background flex items-center gap-1 rounded-full px-1.5 py-0.5 text-base shadow-sm"
+                >
+                  <motion.span key={total} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="leading-none">
+                    {shownEmoji.join('')}
+                  </motion.span>
+                  <span className="text-muted-foreground text-xs">{total}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto" align="center">
+                <EmojiGrid
+                  onPick={(emoji) => {
+                    onToggle(emoji);
+                    setOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </TooltipTrigger>
+          <TooltipContent>{breakdown}</TooltipContent>
+        </Tooltip>
+      </motion.div>
     </AnimatePresence>
   );
 }
@@ -124,7 +119,6 @@ function Bubble({
   comment,
   own,
   canDelete,
-  userId,
   onDelete,
   onEditRequest,
   onToggleReaction,
@@ -133,7 +127,6 @@ function Bubble({
   comment: AnnouncementComment;
   own: boolean;
   canDelete: boolean;
-  userId?: string;
   onDelete: () => void;
   onEditRequest: () => void;
   onToggleReaction: (emoji: string) => void;
@@ -157,9 +150,13 @@ function Bubble({
               </div>
             )}
 
-            <ChatBubbleMessage variant={own ? 'sent' : 'received'} html={comment.text} />
+            <ChatBubbleMessage
+              variant={own ? 'sent' : 'received'}
+              html={comment.text}
+              meta={formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+            />
 
-            <ReactionBar reactions={comment.reactions} userId={userId} onToggle={onToggleReaction} />
+            <ReactionBar reactions={comment.reactions} onToggle={onToggleReaction} />
 
             <ChatBubbleActionWrapper className={cn((pickerOpen || menuOpen) && 'opacity-100')}>
               <Tooltip>
@@ -196,7 +193,7 @@ function Bubble({
                     </TooltipTrigger>
                     <TooltipContent>More</TooltipContent>
                   </Tooltip>
-                  <DropdownMenuContent align="end" sideOffset={4}>
+                  <DropdownMenuContent align="start" sideOffset={4}>
                     {own && (
                       <DropdownMenuItem onClick={onEditRequest}>
                         <Pencil className="size-3.5" /> Edit
@@ -214,10 +211,6 @@ function Bubble({
           </div>
         </div>
       </ChatBubble>
-      <ChatBubbleTimestamp
-        timestamp={formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-        className={own ? 'mr-9' : 'ml-9'}
-      />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
@@ -345,7 +338,6 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
               comment={c}
               own={c.author.id === user?.id}
               canDelete={c.author.id === user?.id || has('announcements:delete')}
-              userId={user?.id}
               onDelete={() => handleDelete(c.id)}
               onEditRequest={() => startEdit(c)}
               onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}

@@ -22,6 +22,7 @@ import {
   Undo,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface RichTextEditorProps {
   value: string;
@@ -176,32 +177,35 @@ export function RichTextToolbar({ editor, className }: { editor: Editor; classNa
         <Minus className="size-3.5" />
       </ToolbarButton>
       <ToolbarSeparator />
-      <div className="relative">
-        <ToolbarButton title="Link" active={editor.isActive('link')} onClick={openLinkPopover}>
-          <LinkIcon className="size-3.5" />
-        </ToolbarButton>
-        {linkPopoverOpen && (
-          <div className="bg-popover border-border absolute top-full left-0 z-10 mt-1 flex gap-1 rounded-md border p-1 shadow-md">
-            <input
-              autoFocus
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  applyLink();
-                }
-                if (e.key === 'Escape') setLinkPopoverOpen(false);
-              }}
-              placeholder="https://…"
-              className="h-7 w-48 rounded-sm border-none bg-transparent px-1.5 text-xs outline-none"
-            />
-            <button type="button" onClick={applyLink} className="bg-primary text-primary-foreground rounded-sm px-2 text-xs">
-              Apply
-            </button>
-          </div>
-        )}
-      </div>
+      <Popover open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen}>
+        <PopoverTrigger asChild>
+          <ToolbarButton title="Link" active={editor.isActive('link')} onClick={openLinkPopover}>
+            <LinkIcon className="size-3.5" />
+          </ToolbarButton>
+        </PopoverTrigger>
+        {/* Radix portals this to <body>, so it isn't clipped by a Sheet's
+            or scroll container's overflow the way the old absolute-div
+            version was. */}
+        <PopoverContent className="flex w-auto gap-1 p-1" align="start">
+          <input
+            autoFocus
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                applyLink();
+              }
+              if (e.key === 'Escape') setLinkPopoverOpen(false);
+            }}
+            placeholder="https://…"
+            className="h-7 w-48 rounded-sm border-none bg-transparent px-1.5 text-xs outline-none"
+          />
+          <button type="button" onClick={applyLink} className="bg-primary text-primary-foreground rounded-sm px-2 text-xs">
+            Apply
+          </button>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

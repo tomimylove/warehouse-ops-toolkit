@@ -59,29 +59,31 @@ const chatBubbleMessageVariants = cva('max-w-full px-3.5 py-2 text-sm break-word
 
 interface ChatBubbleMessageProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof chatBubbleMessageVariants> {
   html?: string;
+  // Rendered as a trailing, right-aligned line inside the bubble itself
+  // (WhatsApp-style) — a timestamp sitting outside the bubble as a
+  // separate element broke alignment with the avatar once anything else
+  // (reactions) also lived in that outer flow.
+  meta?: React.ReactNode;
 }
 
 const ChatBubbleMessage = React.forwardRef<HTMLDivElement, ChatBubbleMessageProps>(
-  ({ className, variant, html, children, ...props }, ref) =>
-    html !== undefined ? (
-      <div ref={ref} className={cn(chatBubbleMessageVariants({ variant, className }))} dangerouslySetInnerHTML={{ __html: html }} {...props} />
-    ) : (
-      <div ref={ref} className={cn(chatBubbleMessageVariants({ variant, className }))} {...props}>
-        {children}
-      </div>
-    ),
+  ({ className, variant, html, meta, children, ...props }, ref) => (
+    <div ref={ref} className={cn(chatBubbleMessageVariants({ variant, className }))} {...props}>
+      {html !== undefined ? <div dangerouslySetInnerHTML={{ __html: html }} /> : children}
+      {meta && (
+        <div
+          className={cn(
+            'mt-0.5 flex justify-end text-[10px] leading-none',
+            variant === 'sent' ? 'text-primary-foreground/70' : 'text-muted-foreground',
+          )}
+        >
+          {meta}
+        </div>
+      )}
+    </div>
+  ),
 );
 ChatBubbleMessage.displayName = 'ChatBubbleMessage';
-
-const ChatBubbleTimestamp: React.FC<React.HTMLAttributes<HTMLDivElement> & { timestamp: string }> = ({
-  timestamp,
-  className,
-  ...props
-}) => (
-  <div className={cn('text-muted-foreground mt-1 px-1 text-[11px]', className)} {...props}>
-    {timestamp}
-  </div>
-);
 
 type ChatBubbleActionProps = React.ComponentProps<typeof Button> & { icon: React.ReactNode };
 
@@ -120,7 +122,6 @@ export {
   ChatBubble,
   ChatBubbleAvatar,
   ChatBubbleMessage,
-  ChatBubbleTimestamp,
   ChatBubbleAction,
   ChatBubbleActionWrapper,
   chatBubbleVariant,
