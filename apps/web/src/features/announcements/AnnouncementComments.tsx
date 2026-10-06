@@ -70,9 +70,10 @@ function EmojiGrid({ onPick }: { onPick: (emoji: string) => void }) {
 
 // A single pill housing every reaction on the comment (grouped by emoji,
 // each with its own count), not one pill per emoji — matches the
-// Discord/YouGile-style reaction bar, not a bare like counter. Sits in
-// normal flow below the message (not absolutely overlapping it or the
-// timestamp), right-aligned under the bubble.
+// Discord/YouGile-style reaction bar, not a bare like counter. Sits
+// embedded at the bubble's bottom-right corner (half overlapping it),
+// not in normal flow — flow-positioned reactions pushed the timestamp
+// down and broke its alignment with the avatar below.
 function ReactionBar({
   reactions,
   userId,
@@ -94,7 +95,7 @@ function ReactionBar({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
           transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
-          className="mt-1 flex items-center justify-end gap-1"
+          className="bg-background border-border absolute -bottom-2.5 right-1 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-sm shadow-sm"
         >
           {shown.map(([emoji, users]) => (
             <button
@@ -102,8 +103,8 @@ function ReactionBar({
               type="button"
               onClick={() => onToggle(emoji)}
               className={cn(
-                'bg-background border-border flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-sm shadow-sm',
-                userId && users.includes(userId) && 'border-primary/50',
+                'flex items-center gap-0.5 rounded-full px-0.5',
+                userId && users.includes(userId) && 'ring-primary/60 ring-1',
               )}
             >
               <motion.span key={users.length} initial={{ scale: 1.4 }} animate={{ scale: 1 }} className="leading-none">
@@ -158,7 +159,9 @@ function Bubble({
 
             <ChatBubbleMessage variant={own ? 'sent' : 'received'} html={comment.text} />
 
-            <ChatBubbleActionWrapper>
+            <ReactionBar reactions={comment.reactions} userId={userId} onToggle={onToggleReaction} />
+
+            <ChatBubbleActionWrapper className={cn((pickerOpen || menuOpen) && 'opacity-100')}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ChatBubbleAction icon={<Reply className="size-3.5" />} onClick={onReply} />
@@ -209,8 +212,6 @@ function Bubble({
               )}
             </ChatBubbleActionWrapper>
           </div>
-
-          <ReactionBar reactions={comment.reactions} userId={userId} onToggle={onToggleReaction} />
         </div>
       </ChatBubble>
       <ChatBubbleTimestamp
@@ -413,7 +414,7 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
           )}
         </AnimatePresence>
 
-        <div className="flex items-center gap-0.5 px-1.5 py-1">
+        <div className="flex items-end gap-0.5 px-1.5 py-1">
           <RichTextEditor
             value={draft}
             onChange={setDraft}
@@ -425,7 +426,6 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
             className="min-w-0 flex-1"
             contentClassName="px-2 py-1"
             onEditorReady={setEditor}
-            onSubmitKey={handleSubmit}
           />
 
           <Tooltip>
