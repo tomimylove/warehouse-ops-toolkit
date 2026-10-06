@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
@@ -257,7 +258,19 @@ function Bubble({
   );
 }
 
-export function AnnouncementComments({ announcementId, className }: { announcementId: string; className?: string }) {
+export function AnnouncementComments({
+  announcementId,
+  header,
+  className,
+}: {
+  announcementId: string;
+  // The announcement's own title/author/cover/body — rendered inside this
+  // component's scroll container (above the thread) rather than passed in
+  // as a sibling, so the floating composer below can be positioned
+  // relative to the one shared scroll area that holds both.
+  header?: ReactNode;
+  className?: string;
+}) {
   const { user, has } = usePermissions();
   const [comments, setComments] = useState<AnnouncementComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -269,6 +282,7 @@ export function AnnouncementComments({ announcementId, className }: { announceme
   const [replyTo, setReplyTo] = useState<AnnouncementComment | null>(null);
   const [editingComment, setEditingComment] = useState<AnnouncementComment | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -276,6 +290,7 @@ export function AnnouncementComments({ announcementId, className }: { announceme
     setComments([]);
     setReplyTo(null);
     setEditingComment(null);
+    scrollRef.current?.scrollTo({ top: 0 });
     announcementsApi
       .listComments(announcementId)
       .then((data) => {
@@ -356,47 +371,55 @@ export function AnnouncementComments({ announcementId, className }: { announceme
   }
 
   return (
-    <div className={cn('border-border mt-6 border-t pt-4', className)}>
-      <h3 className="mb-3 text-sm font-medium">
-        Discussion{comments.length > 0 && <span className="text-muted-foreground"> ({comments.length})</span>}
-      </h3>
+    // `relative` anchors the floating composer below to this box rather
+    // than the page — `sticky` was tried first but only pins once you've
+    // scrolled down TO it, so it still required scrolling to reveal. An
+    // absolutely-positioned overlay is visible immediately, regardless of
+    // scroll position, which is what was actually asked for.
+    <div className={cn('relative flex min-h-0 flex-col', className)}>
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        {header}
 
-      {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
+        <div className="border-border mt-6 border-t pt-4">
+          <h3 className="mb-3 text-sm font-medium">
+            Discussion{comments.length > 0 && <span className="text-muted-foreground"> ({comments.length})</span>}
+          </h3>
 
-      {!loading && (
-        // Bottom padding roughly matches the composer's height, so the
-        // sticky composer below doesn't sit directly on top of the last
-        // message once you've scrolled all the way down.
-        <div className="flex flex-col pb-16">
-          {comments.map((c) => (
-            <Bubble
-              key={c.id}
-              comment={c}
-              own={c.author.id === user?.id}
-              canDelete={c.author.id === user?.id || has('announcements:delete')}
-              onDelete={() => handleDelete(c.id)}
-              onEditRequest={() => startEdit(c)}
-              onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
-              onReply={() => startReply(c)}
-            />
-          ))}
-          <div ref={bottomRef} />
+          {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
+
+          {!loading && (
+            // Bottom padding roughly matches the floating composer's height,
+            // so it doesn't sit flush on top of the very last message.
+            <div className="flex flex-col pb-20">
+              {comments.map((c) => (
+                <Bubble
+                  key={c.id}
+                  comment={c}
+                  own={c.author.id === user?.id}
+                  canDelete={c.author.id === user?.id || has('announcements:delete')}
+                  onDelete={() => handleDelete(c.id)}
+                  onEditRequest={() => startEdit(c)}
+                  onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
+                  onReply={() => startReply(c)}
+                />
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Sticky, not static — the composer (and the edit-in-composer flow)
-          used to sit at the natural end of the thread, so on any real
-          discussion you had to scroll all the way down to find it. Sticky
-          keeps it pinned to the bottom of the page's scroll viewport
-          (AnnouncementsPage's reader pane) regardless of thread length or
-          scroll position, floating just above the messages beneath it. A
-          solid background keeps it legible over whatever scrolls under it. */}
-      <div className="bg-background sticky bottom-0 pb-2">
+      {/* Floats over the scroll area above, always visible without
+          scrolling to it — the gradient fades the content behind it rather
+          than cutting it off sharply, and only the composer box itself
+          (not the transparent padding around it) captures clicks, so the
+          thread underneath stays scrollable/clickable through the gap. */}
+      <div className="from-background via-background pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t to-transparent pt-6 pb-2">
         {/* Single bordered container for the whole composer — the toolbar
             flyout and the icon row both live inside it, so nothing looks
             bolted on and nothing (send/mic included) pokes out past the
             border. */}
-        <div className="border-input focus-within:border-ring overflow-hidden rounded-2xl border transition-colors">
+        <div className="border-input focus-within:border-ring bg-background pointer-events-auto overflow-hidden rounded-2xl border transition-colors">
         <AnimatePresence initial={false}>
           {(replyTo || editingComment) && (
             <motion.div

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { History, MoreHorizontal, PartyPopper, Pencil, Pin, PinOff, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -97,13 +97,6 @@ export function AnnouncementsPage() {
   }, [items, teamFilter, query]);
   const unreadCount = items.filter((a) => !a.isRead).length;
   const selected = items.find((a) => a.id === selectedId) ?? null;
-  const readerRef = useRef<HTMLDivElement>(null);
-
-  // Switching announcements shouldn't carry over the previous one's scroll
-  // position — always land back on the title/body, not mid-thread.
-  useEffect(() => {
-    readerRef.current?.scrollTo({ top: 0 });
-  }, [selectedId]);
 
   async function select(item: Announcement) {
     setSelectedId(item.id);
@@ -305,62 +298,70 @@ export function AnnouncementsPage() {
             </ul>
           </div>
 
-          <div className="min-h-0 overflow-y-auto" ref={readerRef}>
+          <div className="min-h-0">
             {selected ? (
-              <div>
-                <h2 className="text-lg font-semibold">{selected.title}</h2>
+              <AnnouncementComments
+                key={selected.id}
+                announcementId={selected.id}
+                className="h-full"
+                header={
+                  <div>
+                    <h2 className="text-lg font-semibold">{selected.title}</h2>
 
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Avatar className="size-6">
-                      <AvatarFallback className="text-xs">{initials(selected.author.name)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium">{selected.author.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {formatDistanceToNow(new Date(selected.createdAt), { addSuffix: true })}
-                    </span>
-                    {!selected.visibleToAll &&
-                      selected.teams.map((t) => (
-                        <span key={t.id} className="bg-muted rounded-full px-2 py-0.5 text-xs">
-                          {t.name}
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Avatar className="size-6">
+                          <AvatarFallback className="text-xs">{initials(selected.author.name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">{selected.author.name}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDistanceToNow(new Date(selected.createdAt), { addSuffix: true })}
                         </span>
-                      ))}
+                        {!selected.visibleToAll &&
+                          selected.teams.map((t) => (
+                            <span key={t.id} className="bg-muted rounded-full px-2 py-0.5 text-xs">
+                              {t.name}
+                            </span>
+                          ))}
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        {has('announcements:edit') && (
+                          <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(true)} title="History">
+                            <History />
+                          </Button>
+                        )}
+                        {has('announcements:pin') && (
+                          <Button variant="ghost" size="icon" onClick={() => setPinned(selected, !selected.pinned)}>
+                            {selected.pinned ? <PinOff /> : <Pin />}
+                          </Button>
+                        )}
+                        {has('announcements:edit') && (
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(selected)}>
+                            <Pencil />
+                          </Button>
+                        )}
+                        {has('announcements:delete') && (
+                          <Button variant="ghost" size="icon" onClick={() => setDeleting(selected)}>
+                            <Trash2 />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className="mt-4 h-32 w-full rounded-md"
+                      style={{ background: coverFor(selected.id, selected.coverId).gradient }}
+                    />
+
+                    {/* Tiptap output is our own sanitized rich text — safe to render.
+                        If this ever accepts arbitrary user HTML from elsewhere, sanitize first. */}
+                    <div
+                      className={`mt-4 text-sm ${richTextContentClass}`}
+                      dangerouslySetInnerHTML={{ __html: selected.body }}
+                    />
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    {has('announcements:edit') && (
-                      <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(true)} title="History">
-                        <History />
-                      </Button>
-                    )}
-                    {has('announcements:pin') && (
-                      <Button variant="ghost" size="icon" onClick={() => setPinned(selected, !selected.pinned)}>
-                        {selected.pinned ? <PinOff /> : <Pin />}
-                      </Button>
-                    )}
-                    {has('announcements:edit') && (
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(selected)}>
-                        <Pencil />
-                      </Button>
-                    )}
-                    {has('announcements:delete') && (
-                      <Button variant="ghost" size="icon" onClick={() => setDeleting(selected)}>
-                        <Trash2 />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className="mt-4 h-32 w-full rounded-md"
-                  style={{ background: coverFor(selected.id, selected.coverId).gradient }}
-                />
-
-                {/* Tiptap output is our own sanitized rich text — safe to render.
-                    If this ever accepts arbitrary user HTML from elsewhere, sanitize first. */}
-                <div className={`mt-4 text-sm ${richTextContentClass}`} dangerouslySetInnerHTML={{ __html: selected.body }} />
-
-                <AnnouncementComments announcementId={selected.id} />
-              </div>
+                }
+              />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                 <div className="bg-muted flex size-16 items-center justify-center rounded-full">
