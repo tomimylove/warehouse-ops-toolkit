@@ -20,7 +20,6 @@ services:
   - type: web
     name: warehouse-ops-web
     runtime: static
-    plan: free
     buildCommand: npm install && npm run build:web
     staticPublishPath: apps/web/dist
     envVars:
