@@ -95,7 +95,8 @@ interface ChatBubbleActionWrapperProps extends React.HTMLAttributes<HTMLDivEleme
   variant?: 'sent' | 'received';
 }
 
-// Floats above the bubble's top-right corner, slightly overlapping it —
+// Floats fully above the bubble (no overlap — on a short message the
+// overlap covered half the text), aligned to its top-right corner,
 // always on the right (Teams-style) regardless of own/received, since
 // mirroring by side crowded the avatar and the name label on received
 // messages and the "which side" inconsistency was its own complaint.
@@ -104,7 +105,7 @@ const ChatBubbleActionWrapper = React.forwardRef<HTMLDivElement, ChatBubbleActio
     <div
       ref={ref}
       className={cn(
-        'bg-background border-border absolute -top-3.5 right-2 z-10 flex items-center gap-0.5 rounded-full border px-0.5 py-0.5 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100',
+        'bg-background border-border absolute -top-9 right-2 z-10 flex items-center gap-0.5 rounded-full border px-0.5 py-0.5 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100',
         className,
       )}
       {...props}
