@@ -10,6 +10,12 @@ services:
     region: frankfurt
     buildCommand: npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build:api
     startCommand: node apps/api/dist/main.js
+    # Skip rebuilding this service for pushes that only touch the frontend
+    # — prisma/ and root config stay watched since both services depend
+    # on them (schema changes, lockfile, render.yaml itself).
+    buildFilter:
+      ignoredPaths:
+        - apps/web/**
     envVars:
       - key: NODE_VERSION
         value: 20.17.0
@@ -24,6 +30,10 @@ services:
     runtime: static
     buildCommand: npm install && npm run build:web
     staticPublishPath: apps/web/dist
+    # Skip rebuilding this service for pushes that only touch the backend.
+    buildFilter:
+      ignoredPaths:
+        - apps/api/**
     envVars:
       # Placeholder — Render assigns the api service's real hostname on
       # first deploy; update this to match (Usage & billing -> the api
