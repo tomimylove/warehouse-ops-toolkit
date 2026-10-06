@@ -61,14 +61,15 @@ export function AnnouncementsPage() {
       setItems(list);
       setSelectedId((prev) => {
         if (prev && list.some((a) => a.id === prev)) return prev;
-        // Nothing selected (or the selection vanished) — default to the
-        // oldest unread one, so working through the backlog starts at the
-        // start of it. Once everything's read, fall back to the pinned
-        // announcement (at most one can be pinned) rather than an empty
-        // "all caught up" screen — only with nothing unread AND nothing
-        // pinned does that empty state actually show.
+        // Nothing selected (or the selection vanished) — the pinned
+        // announcement (at most one can be pinned) is the default, full
+        // stop: pinning is what raises a record's importance above the
+        // rest of the feed, so it should win even over unread ones.
+        // Without a pin, fall back to the oldest unread so working through
+        // a backlog starts at the start of it; with neither, the reader
+        // pane shows its "all caught up" empty state.
         const unread = [...list].filter((a) => !a.isRead).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return unread[0]?.id ?? list.find((a) => a.pinned)?.id ?? null;
+        return list.find((a) => a.pinned)?.id ?? unread[0]?.id ?? null;
       });
     } catch {
       setError('Could not load announcements. Is the API running?');

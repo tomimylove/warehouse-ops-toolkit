@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { Mic, MoreHorizontal, Paperclip, Pencil, Reply, SendHorizontal, SmilePlus, Trash2, Type, X } from 'lucide-react';
+import { MessagesSquare, Mic, MoreHorizontal, Paperclip, Pencil, Reply, SendHorizontal, SmilePlus, Trash2, Type, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -397,7 +397,17 @@ export function AnnouncementComments({
 
           {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
 
-          {!loading && (
+          {!loading && comments.length === 0 && (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <div className="bg-muted flex size-12 items-center justify-center rounded-full">
+                <MessagesSquare className="text-muted-foreground size-5" />
+              </div>
+              <p className="text-sm font-medium">No comments yet</p>
+              <p className="text-muted-foreground max-w-56 text-xs">Be the first to say something about this.</p>
+            </div>
+          )}
+
+          {!loading && comments.length > 0 && (
             // Bottom padding roughly matches the floating composer's height,
             // so it doesn't sit flush on top of the very last message.
             <div className="flex flex-col pb-20">
