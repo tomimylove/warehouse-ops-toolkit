@@ -38,6 +38,7 @@ interface RichTextEditorProps {
   contentClassName?: string;
   onEditorReady?: (editor: Editor | null) => void;
   onSubmitKey?: () => void;
+  onBlur?: () => void;
 }
 
 // forwardRef + spreading ...rest is required here, not cosmetic — Radix's
@@ -245,6 +246,7 @@ export function RichTextEditor({
   contentClassName,
   onEditorReady,
   onSubmitKey,
+  onBlur,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -268,6 +270,16 @@ export function RichTextEditor({
           return true;
         }
         return false;
+      },
+      // ProseMirror's contenteditable div has no plain React onBlur to hook
+      // — this is the documented way to get one (used for autosave-on-blur
+      // fields like the task description, mirroring the plain Textarea it
+      // replaced).
+      handleDOMEvents: {
+        blur: () => {
+          onBlur?.();
+          return false;
+        },
       },
     },
   });

@@ -82,6 +82,14 @@ function App() {
           }
         />
         <Route
+          path="/tasks/:projectId"
+          element={
+            <RequirePermission permission="tasks:view">
+              <TasksPage />
+            </RequirePermission>
+          }
+        />
+        <Route
           path="/knowledge-base"
           element={
             <RequirePermission permission="knowledge-base:view">

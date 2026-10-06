@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import type { Editor } from '@tiptap/react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { Button } from '@/components/ui/button';
 import { tasksApi } from './api';
 import type { Task } from './types';
@@ -22,6 +23,7 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
+  const [descriptionEditor, setDescriptionEditor] = useState<Editor | null>(null);
 
   useEffect(() => {
     if (!taskId) {
@@ -32,7 +34,16 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
       setTask(t);
       setTitle(t.title);
       setDescription(t.description ?? '');
+      // The editor instance persists across tasks (the drawer stays
+      // mounted while switching which card is open) — its content is only
+      // the *initial* value on creation, so switching tasks needs this
+      // explicit reset or it'd keep showing the previous task's text.
+      descriptionEditor?.commands.setContent(t.description ?? '');
     });
+    // descriptionEditor intentionally excluded — it would re-run this
+    // effect (and reset the field mid-edit) every time the editor
+    // instance itself changes, not just when taskId does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
   async function saveTitle() {
@@ -79,12 +90,13 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
             </TabsList>
 
             <TabsContent value="description" className="mt-3">
-              <Textarea
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 onBlur={saveDescription}
+                onEditorReady={setDescriptionEditor}
                 placeholder="Add a description…"
-                className="min-h-32"
+                minHeight="128px"
               />
             </TabsContent>
 

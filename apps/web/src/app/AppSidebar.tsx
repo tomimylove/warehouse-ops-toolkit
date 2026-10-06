@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ChevronRight, Warehouse as BrandIcon } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -15,6 +16,7 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -24,9 +26,10 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
-import { navItems } from './nav';
+import { navItems, type SubNavItem } from './nav';
 import { usePermissions } from './PermissionsContext';
 import { NavUserFooter } from './NavUserFooter';
+import { tasksApi } from '../features/tasks/api';
 
 export function AppSidebar() {
   const location = useLocation();
@@ -35,6 +38,16 @@ export function AppSidebar() {
   // Nothing renders as "missing" while /me is still in flight — an item
   // pops in once allowed, it never flashes and then disappears.
   const visibleItems = loading ? [] : navItems.filter((item) => has(item.permission));
+
+  // Projects are user-created records, not a fixed list like Operations'
+  // children — fetched once permission is confirmed and kept fresh on
+  // every Projects-area navigation (cheap: it's just id+name per project).
+  const [projects, setProjects] = useState<SubNavItem[]>([]);
+  const showsProjects = visibleItems.some((item) => item.dynamicChildren === 'projects');
+  useEffect(() => {
+    if (!showsProjects) return;
+    tasksApi.listProjects().then((list) => setProjects(list.map((p) => ({ path: `/tasks/${p.id}`, label: p.name }))));
+  }, [showsProjects, location.pathname]);
 
   return (
     <Sidebar collapsible="icon">
@@ -69,6 +82,83 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleItems.map((item) => {
                 const Icon = item.icon;
+
+                if (item.dynamicChildren === 'projects') {
+                  const groupActive = location.pathname.startsWith(item.path);
+
+                  // Same flyout idea as a static subNav group when
+                  // collapsed, but the trigger also opens straight to
+                  // item.path (the project picker/create landing) via the
+                  // first entry, since there's no separate click target
+                  // for "just navigate" in the collapsed rail.
+                  if (state === 'collapsed') {
+                    return (
+                      <SidebarMenuItem key={item.path}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <SidebarMenuButton
+                              isActive={groupActive}
+                              tooltip={item.label}
+                              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            >
+                              <Icon />
+                              <span>{item.label}</span>
+                            </SidebarMenuButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="right" align="start" className="w-48">
+                            <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                              <NavLink to={item.path}>All projects</NavLink>
+                            </DropdownMenuItem>
+                            {projects.map((sub) => (
+                              <DropdownMenuItem key={sub.path} asChild>
+                                <NavLink to={sub.path}>{sub.label}</NavLink>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </SidebarMenuItem>
+                    );
+                  }
+
+                  return (
+                    <Collapsible key={item.path} defaultOpen={groupActive} className="group/collapsible">
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location.pathname === item.path}
+                          tooltip={item.label}
+                          className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        >
+                          <NavLink to={item.path}>
+                            <Icon />
+                            <span>{item.label}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                        {projects.length > 0 && (
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuAction>
+                              <ChevronRight className="transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                            </SidebarMenuAction>
+                          </CollapsibleTrigger>
+                        )}
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {projects.map((sub) => (
+                              <SidebarMenuSubItem key={sub.path}>
+                                <SidebarMenuSubButton asChild isActive={location.pathname === sub.path}>
+                                  <NavLink to={sub.path}>
+                                    <span>{sub.label}</span>
+                                  </NavLink>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
 
                 if (item.subNav) {
                   const groupActive = item.subNav.some((sub) => location.pathname === sub.path);

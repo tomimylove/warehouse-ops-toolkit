@@ -38,6 +38,11 @@ export interface NavItem {
   /** A group with children is a pure expand/collapse toggle in the
    *  sidebar — it has no route of its own, only its children do. */
   subNav?: SubNavItem[];
+  /** Like subNav, but the children are user-created records fetched at
+   *  render time (AppSidebar) rather than a fixed list here — currently
+   *  just Projects. Unlike a subNav group, the parent itself is still a
+   *  real link (the project picker/create landing), not just a toggle. */
+  dynamicChildren?: 'projects';
 }
 
 export const navItems: NavItem[] = [
@@ -59,7 +64,17 @@ export const navItems: NavItem[] = [
   },
   // Nav label only — route, module, DTOs, and the tasks:* permission keys
   // stay as-is (user's call: rename the sidebar text, not the plumbing).
-  { path: '/tasks', label: 'Projects', status: 'placeholder', icon: ListChecks, permission: 'tasks:view' },
+  // Projects used to be picked from a row of pill buttons at the top of
+  // the page, which read like breadcrumbs but acted like tabs — moved
+  // into the sidebar as a proper (dynamic) submenu instead.
+  {
+    path: '/tasks',
+    label: 'Projects',
+    status: 'placeholder',
+    icon: ListChecks,
+    permission: 'tasks:view',
+    dynamicChildren: 'projects',
+  },
   {
     path: '/knowledge-base',
     label: 'Knowledge base',
