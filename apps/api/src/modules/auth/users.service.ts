@@ -22,4 +22,11 @@ export class UsersService {
 
     return this.prisma.user.create({ data: { email, name, roleId: defaultRole.id } });
   }
+
+  // Backs the Tasks assignee picker — no dedicated users:* permission yet
+  // (same reasoning as Team riding on announcements:* until Staff grows
+  // into a second consumer, see teams.controller.ts).
+  list() {
+    return this.prisma.user.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, email: true } });
+  }
 }

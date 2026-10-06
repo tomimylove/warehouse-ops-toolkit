@@ -17,6 +17,7 @@ import { RequirePermission } from '../auth/require-permission.decorator';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { CreateTaskCommentDto } from './dto/create-task-comment.dto';
 
 @Controller('tasks')
 @UseGuards(PermissionsGuard)
@@ -60,8 +61,8 @@ export class TasksController {
   // work, not your own.
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateTaskDto) {
-    await this.requireOwnerOrPermission(id, 'tasks:edit');
-    return this.tasks.update(id, dto);
+    const user = await this.requireOwnerOrPermission(id, 'tasks:edit');
+    return this.tasks.update(id, dto, user.id);
   }
 
   @Delete(':id')
@@ -70,11 +71,31 @@ export class TasksController {
     return this.tasks.remove(id);
   }
 
+  @Get(':id/comments')
+  @RequirePermission('tasks:view')
+  listComments(@Param('id') id: string) {
+    return this.tasks.listComments(id);
+  }
+
+  @Post(':id/comments')
+  @RequirePermission('tasks:view')
+  async createComment(@Param('id') id: string, @Body() dto: CreateTaskCommentDto) {
+    const user = await this.currentUser.get();
+    return this.tasks.createComment(id, user.id, dto);
+  }
+
+  @Get(':id/activity')
+  @RequirePermission('tasks:view')
+  listActivity(@Param('id') id: string) {
+    return this.tasks.listActivity(id);
+  }
+
   private async requireOwnerOrPermission(taskId: string, permission: string) {
     const [task, user] = await Promise.all([this.tasks.get(taskId), this.currentUser.get()]);
-    if (task.authorId === user.id) return;
+    if (task.authorId === user.id) return user;
     if (!user.permissions.includes(permission)) {
       throw new ForbiddenException(`Missing permission: ${permission}`);
     }
+    return user;
   }
 }

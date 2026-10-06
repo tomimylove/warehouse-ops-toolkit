@@ -50,4 +50,12 @@ export class BoardsService {
       include: { columns: { orderBy: { order: 'asc' } } },
     });
   }
+
+  async createColumn(boardId: string, name: string) {
+    const board = await this.prisma.board.findUnique({ where: { id: boardId } });
+    if (!board) throw new NotFoundException(`Board ${boardId} not found`);
+
+    const siblingCount = await this.prisma.column.count({ where: { boardId } });
+    return this.prisma.column.create({ data: { boardId, name, order: siblingCount } });
+  }
 }

@@ -1,3 +1,6 @@
+export type TaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+export type TaskRecurrence = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
 export interface Task {
   id: string;
   title: string;
@@ -8,9 +11,36 @@ export interface Task {
   authorId: string;
   parentId: string | null;
   dueDate: string | null;
+  priority: TaskPriority;
+  recurrence: TaskRecurrence;
+  assigneeId: string | null;
+  assignee: { id: string; name: string } | null;
+  completed: boolean;
   createdAt: string;
   updatedAt: string;
   subtasks?: Task[];
+  // Board-list rows carry a count instead of the full relation (subtasks
+  // live with boardId: null, so a board query can't eager-load them the
+  // way GET /tasks/:id does) — enough for the card's expand chevron.
+  _count?: { subtasks: number };
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  author: { id: string; name: string };
+  text: string;
+  createdAt: string;
+}
+
+export interface TaskActivity {
+  id: string;
+  taskId: string;
+  actorId: string;
+  actor: { id: string; name: string };
+  message: string;
+  createdAt: string;
 }
 
 export interface Column {

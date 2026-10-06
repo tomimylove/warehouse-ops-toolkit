@@ -45,7 +45,7 @@ model Announcement {
   // the form just means `teams` is empty while this stays true. The
   // restriction only ever applies to a plain reader — anyone with
   // announcements:edit sees every announcement regardless of their own team.
-  visibleToAll Boolean            @default(true)
+  visibleToAll Boolean               @default(true)
   teams        AnnouncementTeam[]
   reads        AnnouncementRead[]
   versions     AnnouncementVersion[]
@@ -157,11 +157,14 @@ model User {
   // same "not every account has to be slotted in" allowance the old FSA
   // schema gave StaffMember.team.
   teamId                String?
-  team                  Team?                  @relation(fields: [teamId], references: [id])
+  team                  Team?                 @relation(fields: [teamId], references: [id])
   announcementReads     AnnouncementRead[]
   announcementVersions  AnnouncementVersion[]
   announcementsAuthored Announcement[]
   announcementComments  AnnouncementComment[]
+  tasksAssigned         Task[]                @relation("TaskAssignee")
+  taskComments          TaskComment[]
+  taskActivity          TaskActivityLog[]
 
   @@map("Users")
 }
@@ -234,24 +237,89 @@ model Column {
   @@map("Columns")
 }
 
+enum TaskPriority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+
+  @@map("TaskPriority")
+}
+
+// Recurrence just stamps the NEXT occurrence's dueDate on completion
+// (TasksService.maybeRecur, fired when a task moves into the board's Done
+// column) — no scheduler/cron, and no stored RRULE, since the only thing
+// that needs to repeat here is "a new copy with the date pushed forward".
+enum TaskRecurrence {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+
+  @@map("TaskRecurrence")
+}
+
 model Task {
-  id          String    @id @default(cuid())
+  id          String            @id @default(cuid())
   title       String
   description String?
   boardId     String?
-  board       Board?    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board       Board?            @relation(fields: [boardId], references: [id], onDelete: Cascade)
   // Deleting a column un-assigns its tasks rather than deleting them.
   columnId    String?
-  column      Column?   @relation(fields: [columnId], references: [id], onDelete: SetNull)
-  order       Int       @default(0)
+  column      Column?           @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  order       Int               @default(0)
   authorId    String
   // Deleting a task detaches (not deletes) its subtasks.
   parentId    String?
-  parent      Task?     @relation("Subtasks", fields: [parentId], references: [id], onDelete: SetNull)
-  subtasks    Task[]    @relation("Subtasks")
+  parent      Task?             @relation("Subtasks", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks    Task[]            @relation("Subtasks")
   dueDate     DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  priority    TaskPriority      @default(NONE)
+  recurrence  TaskRecurrence    @default(NONE)
+  // Subtasks have no column of their own to be "Done" in (boardId/columnId
+  // are both null for them — schema comment above), so they need their own
+  // completion flag; reused for personal Notes' checkbox too rather than
+  // adding a second field just for those.
+  completed   Boolean           @default(false)
+  assigneeId  String?
+  assignee    User?             @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  comments    TaskComment[]
+  activity    TaskActivityLog[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@map("Tasks")
+}
+
+// Per-task chat (YouGile has one per card) — flat, no replies/reactions
+// for v1, same reasoning AnnouncementComment gave before replies/reactions
+// were added to it: start simple, the generic comment pattern already
+// exists if this grows the same way later.
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  text      String
+  createdAt DateTime @default(now())
+
+  @@map("TaskComments")
+}
+
+// Append-only activity feed ("X changed priority to High", "X moved to
+// Done") — a freeform message per event, not structured field-diffs; the
+// service composes the message at write time (same spirit as
+// AnnouncementVersion.changes' human-readable strings).
+model TaskActivityLog {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  message   String
+  createdAt DateTime @default(now())
+
+  @@map("TaskActivityLog")
 }

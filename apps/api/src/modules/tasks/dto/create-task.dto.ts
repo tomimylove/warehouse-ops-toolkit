@@ -1,4 +1,5 @@
-import { IsDateString, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { TaskPriority, TaskRecurrence } from '@prisma/client';
 
 export class CreateTaskDto {
   @IsString()
@@ -27,4 +28,16 @@ export class CreateTaskDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
+
+  @IsOptional()
+  @IsEnum(TaskPriority)
+  priority?: TaskPriority;
+
+  @IsOptional()
+  @IsEnum(TaskRecurrence)
+  recurrence?: TaskRecurrence;
+
+  @IsOptional()
+  @IsString()
+  assigneeId?: string;
 }
