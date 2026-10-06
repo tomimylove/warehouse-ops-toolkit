@@ -5,26 +5,14 @@ services:
     name: warehouse-ops-api
     runtime: node
     plan: free
-    # Supabase project lives in AWS ap-northeast-1 (Tokyo). Frankfurt's
-    # route to the pooler was unreachable (TCP never completed, DNS and
-    # Supabase status both checked out clean) — trying Singapore as a
-    # closer, differently-routed region.
-    region: singapore
+    # Region is fixed at creation on Render (no edit option once the
+    # service exists) — frankfurt is what's actually deployed.
+    region: frankfurt
     buildCommand: npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build:api
-    # TEMPORARY — swapped in to diagnose the P1001 "can't reach database
-    # server" failures (DNS/SSL fixes didn't change anything, and region
-    # turned out un-editable on an existing service, so it was never
-    # actually tested). Revert to `node apps/api/dist/main.js` once the
-    # probe's logs are read.
-    startCommand: node apps/api/scripts/db-probe.js
+    startCommand: node apps/api/dist/main.js
     envVars:
       - key: NODE_VERSION
         value: 20.17.0
-      # Supabase's pooler is IPv4-only; Render's containers can prefer IPv6
-      # when resolving the hostname, which hangs instead of falling back
-      # and surfaces as a plain "Can't reach database server" (P1001).
-      - key: NODE_OPTIONS
-        value: --dns-result-order=ipv4first
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL

@@ -1,8 +1,15 @@
 generator client {
-  provider      = "prisma-client-js"
-  // "native" for local dev; the rhel targets are for Netlify Functions'
-  // AWS Lambda runtime (Amazon Linux 2023, with AL2 as a fallback).
-  binaryTargets = ["native", "rhel-openssl-3.0.x", "rhel-openssl-1.0.x"]
+  provider        = "prisma-client-js"
+  // "native" for local dev; the rhel targets are leftover from Netlify
+  // Functions' AWS Lambda runtime and are unused now, kept harmless.
+  binaryTargets   = ["native", "rhel-openssl-3.0.x", "rhel-openssl-1.0.x"]
+  // driverAdapters routes queries through the `pg` npm package (Node's own
+  // TCP/DNS stack) instead of Prisma's bundled Rust query engine doing its
+  // own networking — the engine's connection attempts to Supabase's pooler
+  // were timing out on Render even though a plain Node TCP probe to the
+  // same host:port connected instantly, which pointed at the engine's own
+  // native networking/DNS path rather than anything about the route itself.
+  previewFeatures = ["driverAdapters"]
 }
 
 // Switched from SQL Server to Postgres (free tier — Supabase/Neon, no
