@@ -6,6 +6,7 @@ import { announcementsApi } from './api';
 import { coverFor } from './covers';
 import { usePermissions } from '../../app/PermissionsContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { richTextContentClass } from '@/components/ui/RichTextEditor';
 import { Button, EmptyState, PageHeader } from '../../components/ui';
 import {
   AlertDialog,
@@ -304,7 +305,7 @@ export function AnnouncementsPage() {
 
                 {/* Tiptap output is our own sanitized rich text — safe to render.
                     If this ever accepts arbitrary user HTML from elsewhere, sanitize first. */}
-                <div className="mt-4 text-sm [&_p]:m-0 [&_p]:mb-2" dangerouslySetInnerHTML={{ __html: selected.body }} />
+                <div className={`mt-4 text-sm ${richTextContentClass}`} dangerouslySetInnerHTML={{ __html: selected.body }} />
 
                 <AnnouncementComments announcementId={selected.id} />
               </div>

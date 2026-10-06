@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { richTextContentClass } from '@/components/ui/RichTextEditor';
 
 // Adapted from shadcn-chat (jakobhoeg/shadcn-chat, MIT) — the "message"
 // bubble primitives: a group wrapper (ChatBubble), avatar, the bubble
@@ -47,15 +48,18 @@ const ChatBubbleAvatar: React.FC<ChatBubbleAvatarProps> = ({ src, fallback, clas
   </Avatar>
 );
 
-const chatBubbleMessageVariants = cva('max-w-full px-3.5 py-2 text-sm break-words whitespace-pre-wrap [&_a]:underline [&_p]:m-0 [&_p]:mb-1 [&_p:last-child]:mb-0', {
-  variants: {
-    variant: {
-      received: 'bg-muted rounded-2xl rounded-bl-sm',
-      sent: 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm',
+const chatBubbleMessageVariants = cva(
+  cn('max-w-full px-3.5 py-2 text-sm break-words whitespace-pre-wrap [&_p:last-child]:mb-0', richTextContentClass),
+  {
+    variants: {
+      variant: {
+        received: 'bg-muted rounded-2xl rounded-bl-sm',
+        sent: 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm',
+      },
     },
+    defaultVariants: { variant: 'received' },
   },
-  defaultVariants: { variant: 'received' },
-});
+);
 
 interface ChatBubbleMessageProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof chatBubbleMessageVariants> {
   html?: string;
