@@ -5,6 +5,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -18,6 +19,8 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { CreateTaskCommentDto } from './dto/create-task-comment.dto';
+import { UpdateTaskCommentDto } from './dto/update-task-comment.dto';
+import { ToggleTaskCommentReactionDto } from './dto/toggle-task-comment-reaction.dto';
 
 @Controller('tasks')
 @UseGuards(PermissionsGuard)
@@ -82,6 +85,28 @@ export class TasksController {
   async createComment(@Param('id') id: string, @Body() dto: CreateTaskCommentDto) {
     const user = await this.currentUser.get();
     return this.tasks.createComment(id, user.id, dto);
+  }
+
+  @Patch(':id/comments/:commentId')
+  @RequirePermission('tasks:view')
+  async updateComment(@Param('commentId') commentId: string, @Body() dto: UpdateTaskCommentDto) {
+    const user = await this.currentUser.get();
+    return this.tasks.updateComment(commentId, user.id, dto.text);
+  }
+
+  @Delete(':id/comments/:commentId')
+  @HttpCode(204)
+  @RequirePermission('tasks:view')
+  async removeComment(@Param('commentId') commentId: string) {
+    const user = await this.currentUser.get();
+    await this.tasks.removeComment(commentId, user.id, user.permissions.includes('tasks:delete'));
+  }
+
+  @Post(':id/comments/:commentId/reactions')
+  @RequirePermission('tasks:view')
+  async toggleCommentReaction(@Param('commentId') commentId: string, @Body() dto: ToggleTaskCommentReactionDto) {
+    const user = await this.currentUser.get();
+    return this.tasks.toggleCommentReaction(commentId, user.id, dto.emoji);
   }
 
   @Get(':id/activity')

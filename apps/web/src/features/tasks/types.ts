@@ -33,6 +33,8 @@ export interface TaskComment {
   author: { id: string; name: string };
   text: string;
   createdAt: string;
+  reactions: Record<string, { id: string; name: string }[]>;
+  replyTo: { id: string; text: string; author: { id: string; name: string } } | null;
 }
 
 export interface TaskActivity {

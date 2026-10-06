@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { KanbanSquare, Plus } from 'lucide-react';
 import { PageHeader, EmptyState, Button, Input } from '../../components/ui';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,7 +18,7 @@ import {
 import { tasksApi } from './api';
 import { BoardView } from './BoardView';
 import { TaskDrawer } from './TaskDrawer';
-import type { Project } from './types';
+import type { Board, Project } from './types';
 
 // The project gallery's mini-dashboard card — boards/task counts and a
 // completion bar from the list endpoint's aggregates (projects.service.ts),
@@ -61,6 +64,65 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
       ) : (
         <p className="text-muted-foreground mt-3 text-xs">No tasks yet</p>
       )}
+    </button>
+  );
+}
+
+// A board tab — double-click to rename, drag (press+move, same threshold
+// trick as board columns/cards) to reorder among its siblings.
+function BoardTab({ board, active, onSelect, onRename }: { board: Board; active: boolean; onSelect: () => void; onRename: (name: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: board.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(board.name);
+
+  function commit() {
+    setRenaming(false);
+    if (name.trim() && name.trim() !== board.name) onRename(name.trim());
+    else setName(board.name);
+  }
+
+  if (isDragging) {
+    return <div ref={setNodeRef} style={style} className="border-muted-foreground/30 h-8 w-24 rounded-md border-2 border-dashed" />;
+  }
+
+  if (renaming) {
+    return (
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') {
+            setName(board.name);
+            setRenaming(false);
+          }
+        }}
+        className="bg-background h-8 w-28 rounded-md border px-2 text-sm outline-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      type="button"
+      onClick={onSelect}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        setRenaming(true);
+      }}
+      className={cn(
+        'inline-flex h-8 touch-none items-center rounded-md px-2.5 text-sm font-medium transition-all',
+        active ? 'bg-background text-foreground shadow-sm' : 'text-foreground/60 hover:text-foreground',
+      )}
+    >
+      {board.name}
     </button>
   );
 }
@@ -116,6 +178,33 @@ export function TasksPage() {
     setActiveBoardId(board.id);
   }
 
+  async function renameBoard(boardId: string, name: string) {
+    if (!activeProject) return;
+    await tasksApi.updateBoard(activeProject.id, boardId, { name });
+    await load();
+  }
+
+  async function handleBoardDragEnd(event: DragEndEvent) {
+    if (!activeProject) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = activeProject.boards.map((b) => b.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(ids, oldIndex, newIndex);
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id !== activeProject.id
+          ? p
+          : { ...p, boards: reordered.map((id) => p.boards.find((b) => b.id === id)!) },
+      ),
+    );
+    await tasksApi.reorderBoards(activeProject.id, reordered);
+  }
+
+  const boardSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
   const activeBoard = activeProject?.boards.find((b) => b.id === activeBoardId) ?? null;
 
   return (
@@ -143,10 +232,7 @@ export function TasksPage() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <PageHeader
-        title={activeProject?.name ?? 'Projects'}
-        subtitle="Project → Board → Column → Task, same rows power Board/Gantt/Calendar."
-      />
+      <PageHeader title={activeProject?.name ?? 'Projects'} />
 
       {!loading && !activeProject && (
         <div className="space-y-4">
@@ -173,15 +259,15 @@ export function TasksPage() {
       {activeProject && (
         <>
           <div className="mb-4 flex items-center gap-2">
-            <Tabs value={activeBoardId ?? ''} onValueChange={setActiveBoardId}>
-              <TabsList>
-                {activeProject.boards.map((b) => (
-                  <TabsTrigger key={b.id} value={b.id}>
-                    {b.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <DndContext sensors={boardSensors} collisionDetection={closestCenter} onDragEnd={handleBoardDragEnd}>
+              <SortableContext items={activeProject.boards.map((b) => b.id)} strategy={horizontalListSortingStrategy}>
+                <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
+                  {activeProject.boards.map((b) => (
+                    <BoardTab key={b.id} board={b} active={b.id === activeBoardId} onSelect={() => setActiveBoardId(b.id)} onRename={(name) => renameBoard(b.id, name)} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
             <form onSubmit={createBoard} className="flex items-center gap-1">
               <Input
                 value={newBoardName}

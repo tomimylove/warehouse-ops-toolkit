@@ -5,22 +5,21 @@ import {
   PointerSensor,
   closestCorners,
   useDraggable,
-  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, Check, ChevronDown, Flag, GripVertical, LayoutGrid, Plus, Repeat, User } from 'lucide-react';
+import { Calendar, Check, ChevronDown, Flag, Plus, Repeat, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { tasksApi } from './api';
 import type { Board, Task, TaskPriority, TaskRecurrence } from './types';
@@ -70,6 +69,12 @@ const PRIORITY_STYLE: Record<Exclude<TaskPriority, 'NONE'>, string> = {
   MEDIUM: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   HIGH: 'bg-red-500/15 text-red-600 dark:text-red-400',
 };
+const PRIORITY_ICON_COLOR: Record<TaskPriority, string> = {
+  NONE: 'text-muted-foreground/40',
+  LOW: 'text-blue-500',
+  MEDIUM: 'text-amber-500',
+  HIGH: 'text-red-500',
+};
 
 const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH'];
 const RECURRENCES: Exclude<TaskRecurrence, 'NONE'>[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
@@ -107,53 +112,122 @@ function ColorSwatchGrid({ value, onPick }: { value: string | null; onPick: (col
   );
 }
 
-function ColumnHeader({ column, onColorChange }: { column: { name: string; color: string | null }; onColorChange: (color: string | null) => void }) {
-  const [open, setOpen] = useState(false);
+// The column itself — draggable from anywhere on its header bar (same
+// click-vs-drag distance threshold as cards), with a dashed placeholder
+// while dragging, matching the card reorder effect.
+function BoardColumnContainer({
+  column,
+  onColorChange,
+  onRename,
+  children,
+}: {
+  column: { id: string; name: string; color: string | null };
+  onColorChange: (color: string | null) => void;
+  onRename: (name: string) => void;
+  children: React.ReactNode;
+}) {
+  // useSortable already registers this node as both the drag source AND
+  // the drop target for column.id — a separate useDroppable with the same
+  // id would double-register it, so the task list below just renders
+  // inside this same droppable area instead of its own.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const [colorOpen, setColorOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(column.name);
   const color = column.color ?? DEFAULT_COLUMN_COLOR;
+
+  if (isDragging) {
+    return (
+      <div ref={setNodeRef} style={style} className="w-72 shrink-0">
+        <div className="border-muted-foreground/30 h-40 rounded-lg border-2 border-dashed" />
+      </div>
+    );
+  }
+
+  function commitRename() {
+    setRenaming(false);
+    if (name.trim() && name.trim() !== column.name) onRename(name.trim());
+    else setName(column.name);
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          style={{ background: color }}
-          className="flex w-full items-center px-3 py-2 text-left text-sm font-medium text-white"
-        >
-          <span className="truncate">{column.name}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto" align="start">
-        <ColorSwatchGrid
-          value={column.color}
-          onPick={(c) => {
-            onColorChange(c);
-            setOpen(false);
-          }}
-        />
-      </PopoverContent>
-    </Popover>
+    <div ref={setNodeRef} style={style} className="w-72 shrink-0 overflow-hidden rounded-lg" {...attributes} {...listeners}>
+      <div style={{ background: color }} className="flex w-full items-center text-white">
+        {renaming ? (
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') {
+                setName(column.name);
+                setRenaming(false);
+              }
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full bg-transparent px-3 py-2 text-left text-sm font-medium outline-none"
+          />
+        ) : (
+          <Popover open={colorOpen} onOpenChange={setColorOpen}>
+            <PopoverAnchor asChild>
+              <button
+                type="button"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setRenaming(true);
+                }}
+                onClick={() => setColorOpen(true)}
+                className="min-w-0 flex-1 truncate px-3 py-2 text-left text-sm font-medium"
+              >
+                {column.name}
+              </button>
+            </PopoverAnchor>
+            <PopoverContent className="w-auto" align="start">
+              <ColorSwatchGrid
+                value={column.color}
+                onPick={(c) => {
+                  onColorChange(c);
+                  setColorOpen(false);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+      <div style={{ background: hexToRgba(color, 0.08) }} className="flex flex-col gap-2 p-2">
+        {children}
+      </div>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------
 // "+ Add task" above the column's first card — a plain link until
 // clicked, then an inline card-shaped input; Enter saves, Escape/blur
-// (when empty) cancels back to the link.
+// (when empty) cancels back to the link. Guards against double-submit so
+// a slow request can't be fired twice from one Enter-mash.
 // ---------------------------------------------------------------------
-function AddTaskRow({ onAdd }: { onAdd: (title: string) => void | Promise<void> }) {
+function AddTaskRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
+  const [posting, setPosting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
-    if (!trimmed) {
-      setAdding(false);
-      return;
+    if (!trimmed || posting) return;
+    setPosting(true);
+    try {
+      await onAdd(trimmed);
+      setTitle('');
+      inputRef.current?.focus();
+    } finally {
+      setPosting(false);
     }
-    await onAdd(trimmed);
-    setTitle('');
-    inputRef.current?.focus();
   }
 
   if (!adding) {
@@ -177,8 +251,9 @@ function AddTaskRow({ onAdd }: { onAdd: (title: string) => void | Promise<void> 
             ref={inputRef}
             autoFocus
             value={title}
+            disabled={posting}
             onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => !title.trim() && setAdding(false)}
+            onBlur={() => !title.trim() && !posting && setAdding(false)}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 setTitle('');
@@ -186,7 +261,7 @@ function AddTaskRow({ onAdd }: { onAdd: (title: string) => void | Promise<void> 
               }
             }}
             placeholder="Task title…"
-            className="w-full bg-transparent text-sm outline-none"
+            className="w-full bg-transparent text-sm outline-none disabled:opacity-60"
           />
         </CardContent>
       </Card>
@@ -223,6 +298,56 @@ function SubtaskRow({ subtask, onToggle, onOpen }: { subtask: Task; onToggle: ()
   );
 }
 
+// Inline "+ subtask" affordance inside the expanded subtask list — same
+// debounce guard as AddTaskRow.
+function AddSubtaskRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState('');
+  const [posting, setPosting] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = title.trim();
+    if (!trimmed || posting) return;
+    setPosting(true);
+    try {
+      await onAdd(trimmed);
+      setTitle('');
+      setAdding(false);
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  if (!adding) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAdding(true)}
+        className="text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 text-left text-xs"
+      >
+        <Plus className="size-3" />
+        Add subtask
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="flex gap-1 px-0.5">
+      <input
+        autoFocus
+        value={title}
+        disabled={posting}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => !title.trim() && !posting && setAdding(false)}
+        onKeyDown={(e) => e.key === 'Escape' && setAdding(false)}
+        placeholder="Subtask title…"
+        className="bg-background min-w-0 flex-1 rounded-md border px-2 py-1 text-xs outline-none disabled:opacity-60"
+      />
+    </form>
+  );
+}
+
 function TaskCard({
   task,
   onOpen,
@@ -231,6 +356,7 @@ function TaskCard({
   subtasks,
   loadingSubtasks,
   onToggleSubtask,
+  onAddSubtask,
   onUpdate,
   users,
 }: {
@@ -241,12 +367,16 @@ function TaskCard({
   subtasks: Task[] | undefined;
   loadingSubtasks: boolean;
   onToggleSubtask: (subtask: Task) => void;
+  onAddSubtask: (title: string) => Promise<void>;
   onUpdate: (data: Parameters<typeof tasksApi.updateTask>[1]) => void;
   users: { id: string; name: string }[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const stats = task.subtaskStats;
+  // Only one badge popover open at a time, on this card — opening another
+  // closes whichever was already open instead of stacking.
+  const [openPicker, setOpenPicker] = useState<string | null>(null);
 
   if (isDragging) {
     return (
@@ -258,31 +388,54 @@ function TaskCard({
 
   return (
     <div>
-      <div ref={setNodeRef} style={style}>
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={onOpen} className="cursor-pointer touch-none">
         <Card className="gap-0 py-0">
           <CardContent className="space-y-2 p-3 text-sm">
             <div className="flex items-start gap-1.5">
               <button
                 type="button"
-                {...attributes}
-                {...listeners}
-                className="text-muted-foreground/50 hover:text-muted-foreground mt-0.5 shrink-0 touch-none"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate({ completed: !task.completed });
+                }}
+                className={cn(
+                  'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border',
+                  task.completed ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40',
+                )}
               >
-                <GripVertical className="size-3.5" />
+                {task.completed && <Check className="size-2.5" />}
               </button>
-              <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-                {task.title}
-              </button>
+              <span className={cn('min-w-0 flex-1', task.completed && 'text-muted-foreground line-through')}>{task.title}</span>
             </div>
 
-            {(task.priority !== 'NONE' || task.dueDate || task.recurrence !== 'NONE' || task.assignee) && (
-              <div className="flex flex-wrap items-center gap-1.5 pl-5">
-                <PriorityPicker task={task} onUpdate={onUpdate} />
-                {task.dueDate && <DueDatePicker task={task} onUpdate={onUpdate} />}
-                {task.recurrence !== 'NONE' && <RecurrencePicker task={task} onUpdate={onUpdate} />}
-                <AssigneePicker task={task} users={users} onUpdate={onUpdate} className="ml-auto" />
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-1.5 pl-5" onClick={(e) => e.stopPropagation()}>
+              <PriorityPicker
+                task={task}
+                onUpdate={onUpdate}
+                open={openPicker === 'priority'}
+                onOpenChange={(o) => setOpenPicker(o ? 'priority' : null)}
+              />
+              <DueDatePicker
+                task={task}
+                onUpdate={onUpdate}
+                open={openPicker === 'due'}
+                onOpenChange={(o) => setOpenPicker(o ? 'due' : null)}
+              />
+              <RecurrencePicker
+                task={task}
+                onUpdate={onUpdate}
+                open={openPicker === 'recurrence'}
+                onOpenChange={(o) => setOpenPicker(o ? 'recurrence' : null)}
+              />
+              <AssigneePicker
+                task={task}
+                users={users}
+                onUpdate={onUpdate}
+                className="ml-auto"
+                open={openPicker === 'assignee'}
+                onOpenChange={(o) => setOpenPicker(o ? 'assignee' : null)}
+              />
+            </div>
 
             {stats && (
               <button
@@ -310,12 +463,22 @@ function TaskCard({
       </div>
 
       {expanded && (
-        <div className="border-border mt-1 ml-3.5 flex flex-col gap-1 border-l py-0.5 pl-2.5" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-1 ml-3.5 flex flex-col gap-1.5 py-0.5" onClick={(e) => e.stopPropagation()}>
           {loadingSubtasks && <p className="text-muted-foreground px-2 py-1 text-xs">Loading…</p>}
           {!loadingSubtasks &&
             subtasks?.map((sub) => (
-              <SubtaskRow key={sub.id} subtask={sub} onToggle={() => onToggleSubtask(sub)} onOpen={onOpen} />
+              <div key={sub.id} className="relative pl-3">
+                {/* Rounded branch off the trunk, not a plain line down —
+                    each row's own top-half curves right, and consecutive
+                    rows stack into one continuous trunk. */}
+                <span className="border-border absolute top-0 left-0 h-1/2 w-2.5 rounded-bl-md border-b border-l" aria-hidden />
+                <SubtaskRow subtask={sub} onToggle={() => onToggleSubtask(sub)} onOpen={onOpen} />
+              </div>
             ))}
+          <div className="relative pl-3">
+            <span className="border-border absolute top-0 left-0 h-1/2 w-2.5 rounded-bl-md border-b border-l" aria-hidden />
+            <AddSubtaskRow onAdd={onAddSubtask} />
+          </div>
         </div>
       )}
     </div>
@@ -325,29 +488,46 @@ function TaskCard({
 // ---------------------------------------------------------------------
 // Per-card quick-edit popovers — every badge on the card is itself the
 // trigger, so changing priority/assignee/due date/recurrence never needs
-// opening the drawer.
+// opening the drawer. Always rendered (even unset), so there's always a
+// visible way to set the first value — not only once one already exists.
 // ---------------------------------------------------------------------
-function PriorityPicker({ task, onUpdate }: { task: Task; onUpdate: (data: { priority: TaskPriority }) => void }) {
-  if (task.priority === 'NONE') return null;
+function PriorityPicker({
+  task,
+  onUpdate,
+  open,
+  onOpenChange,
+}: {
+  task: Task;
+  onUpdate: (data: { priority: TaskPriority }) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <button
-          type="button"
-          className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium capitalize', PRIORITY_STYLE[task.priority])}
-        >
-          {task.priority.toLowerCase()}
-        </button>
+        {task.priority === 'NONE' ? (
+          <button type="button" className="text-muted-foreground/40 hover:text-muted-foreground">
+            <Flag className="size-3.5" />
+          </button>
+        ) : (
+          <button type="button" className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium capitalize', PRIORITY_STYLE[task.priority])}>
+            {task.priority.toLowerCase()}
+          </button>
+        )}
       </PopoverTrigger>
-      <PopoverContent className="w-40 p-1" align="start" onClick={(e) => e.stopPropagation()}>
+      <PopoverContent className="w-44 p-1" align="start" onClick={(e) => e.stopPropagation()}>
         {(['NONE', ...PRIORITIES] as TaskPriority[]).map((p) => (
           <button
             key={p}
             type="button"
-            onClick={() => onUpdate({ priority: p })}
+            onClick={() => {
+              onUpdate({ priority: p });
+              onOpenChange(false);
+            }}
             className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
           >
-            <Check className={cn('size-3', task.priority === p ? 'opacity-100' : 'opacity-0')} />
+            <Check className={cn('size-3 shrink-0', task.priority === p ? 'opacity-100' : 'opacity-0')} />
+            <Flag className={cn('size-3 shrink-0', PRIORITY_ICON_COLOR[p])} />
             {p === 'NONE' ? 'No priority' : p.charAt(0) + p.slice(1).toLowerCase()}
           </button>
         ))}
@@ -356,12 +536,29 @@ function PriorityPicker({ task, onUpdate }: { task: Task; onUpdate: (data: { pri
   );
 }
 
-function DueDatePicker({ task, onUpdate }: { task: Task; onUpdate: (data: { dueDate: string }) => void }) {
+function DueDatePicker({
+  task,
+  onUpdate,
+  open,
+  onOpenChange,
+}: {
+  task: Task;
+  onUpdate: (data: { dueDate: string }) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const overdue = !task.completed && task.dueDate && new Date(task.dueDate) < new Date();
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <button type="button" className={cn('text-[10px]', overdue ? 'text-destructive font-medium' : 'text-muted-foreground')}>
+        <button
+          type="button"
+          className={cn(
+            'flex items-center gap-1 text-[10px]',
+            task.dueDate ? (overdue ? 'text-destructive font-medium' : 'text-muted-foreground') : 'text-muted-foreground/40 hover:text-muted-foreground',
+          )}
+        >
+          <Calendar className="size-3.5" />
           {task.dueDate && new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
         </button>
       </PopoverTrigger>
@@ -369,7 +566,11 @@ function DueDatePicker({ task, onUpdate }: { task: Task; onUpdate: (data: { dueD
         <input
           type="date"
           defaultValue={task.dueDate?.slice(0, 10) ?? ''}
-          onChange={(e) => e.target.value && onUpdate({ dueDate: new Date(e.target.value).toISOString() })}
+          onChange={(e) => {
+            if (!e.target.value) return;
+            onUpdate({ dueDate: new Date(e.target.value).toISOString() });
+            onOpenChange(false);
+          }}
           className="bg-background text-sm outline-none"
         />
       </PopoverContent>
@@ -377,12 +578,22 @@ function DueDatePicker({ task, onUpdate }: { task: Task; onUpdate: (data: { dueD
   );
 }
 
-function RecurrencePicker({ task, onUpdate }: { task: Task; onUpdate: (data: { recurrence: TaskRecurrence }) => void }) {
+function RecurrencePicker({
+  task,
+  onUpdate,
+  open,
+  onOpenChange,
+}: {
+  task: Task;
+  onUpdate: (data: { recurrence: TaskRecurrence }) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <button type="button" className="text-muted-foreground">
-          <Repeat className="size-3" />
+        <button type="button" className={task.recurrence === 'NONE' ? 'text-muted-foreground/40 hover:text-muted-foreground' : 'text-muted-foreground'}>
+          <Repeat className="size-3.5" />
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-40 p-1" align="start" onClick={(e) => e.stopPropagation()}>
@@ -390,10 +601,14 @@ function RecurrencePicker({ task, onUpdate }: { task: Task; onUpdate: (data: { r
           <button
             key={r}
             type="button"
-            onClick={() => onUpdate({ recurrence: r })}
+            onClick={() => {
+              onUpdate({ recurrence: r });
+              onOpenChange(false);
+            }}
             className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
           >
-            <Check className={cn('size-3', task.recurrence === r ? 'opacity-100' : 'opacity-0')} />
+            <Check className={cn('size-3 shrink-0', task.recurrence === r ? 'opacity-100' : 'opacity-0')} />
+            <Repeat className={cn('size-3 shrink-0', r === 'NONE' ? 'text-muted-foreground/40' : 'text-muted-foreground')} />
             {r === 'NONE' ? "Doesn't repeat" : r.charAt(0) + r.slice(1).toLowerCase()}
           </button>
         ))}
@@ -407,14 +622,18 @@ function AssigneePicker({
   users,
   onUpdate,
   className,
+  open,
+  onOpenChange,
 }: {
   task: Task;
   users: { id: string; name: string }[];
   onUpdate: (data: { assigneeId: string | null }) => void;
   className?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <button type="button" className={className}>
           {task.assignee ? (
@@ -427,41 +646,42 @@ function AssigneePicker({
               <TooltipContent>{task.assignee.name}</TooltipContent>
             </Tooltip>
           ) : (
-            <User className="text-muted-foreground/50 size-4" />
+            <User className="text-muted-foreground/40 hover:text-muted-foreground size-4" />
           )}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-44 p-1" align="end" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
-          onClick={() => onUpdate({ assigneeId: null })}
+          onClick={() => {
+            onUpdate({ assigneeId: null });
+            onOpenChange(false);
+          }}
           className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
         >
-          <Check className={cn('size-3', !task.assigneeId ? 'opacity-100' : 'opacity-0')} />
+          <Check className={cn('size-3 shrink-0', !task.assigneeId ? 'opacity-100' : 'opacity-0')} />
+          <User className="text-muted-foreground size-3 shrink-0" />
           Unassigned
         </button>
         {users.map((u) => (
           <button
             key={u.id}
             type="button"
-            onClick={() => onUpdate({ assigneeId: u.id })}
+            onClick={() => {
+              onUpdate({ assigneeId: u.id });
+              onOpenChange(false);
+            }}
             className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
           >
-            <Check className={cn('size-3', task.assigneeId === u.id ? 'opacity-100' : 'opacity-0')} />
+            <Check className={cn('size-3 shrink-0', task.assigneeId === u.id ? 'opacity-100' : 'opacity-0')} />
+            <Avatar size="sm" className="size-4 shrink-0">
+              <AvatarFallback className="text-[8px]">{initials(u.name)}</AvatarFallback>
+            </Avatar>
             {u.name}
           </button>
         ))}
       </PopoverContent>
     </Popover>
-  );
-}
-
-function BoardColumn({ columnId, children }: { columnId: string; children: React.ReactNode }) {
-  const { setNodeRef } = useDroppable({ id: columnId });
-  return (
-    <div ref={setNodeRef} className="flex min-h-5 flex-col gap-2">
-      {children}
-    </div>
   );
 }
 
@@ -471,7 +691,19 @@ function BoardColumn({ columnId, children }: { columnId: string; children: React
 // small useDraggable item (id "filter:<field>:<value>") living in the
 // same DndContext as the cards, so a drop can land on either.
 // ---------------------------------------------------------------------
-function FilterOption({ id, label, active, onClick, children }: { id: string; label: string; active: boolean; onClick: () => void; children?: React.ReactNode }) {
+function FilterOption({
+  id,
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  id: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  children?: React.ReactNode;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
   return (
     <button
@@ -526,7 +758,9 @@ function FilterToolbar({
               label={p.charAt(0) + p.slice(1).toLowerCase()}
               active={filters.priority === p}
               onClick={() => setFilters({ ...filters, priority: filters.priority === p ? null : p })}
-            />
+            >
+              <Flag className={cn('size-3 shrink-0', PRIORITY_ICON_COLOR[p])} />
+            </FilterOption>
           ))}
         </PopoverContent>
       </Popover>
@@ -546,7 +780,11 @@ function FilterToolbar({
               label={u.name}
               active={filters.assigneeId === u.id}
               onClick={() => setFilters({ ...filters, assigneeId: filters.assigneeId === u.id ? null : u.id })}
-            />
+            >
+              <Avatar size="sm" className="size-4 shrink-0">
+                <AvatarFallback className="text-[8px]">{initials(u.name)}</AvatarFallback>
+              </Avatar>
+            </FilterOption>
           ))}
         </PopoverContent>
       </Popover>
@@ -577,7 +815,9 @@ function FilterToolbar({
               label={r.charAt(0) + r.slice(1).toLowerCase()}
               active={filters.recurrence === r}
               onClick={() => setFilters({ ...filters, recurrence: filters.recurrence === r ? null : r })}
-            />
+            >
+              <Repeat className="text-muted-foreground size-3 shrink-0" />
+            </FilterOption>
           ))}
         </PopoverContent>
       </Popover>
@@ -596,10 +836,12 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
   const [loadingSubtaskIds, setLoadingSubtaskIds] = useState<Set<string>>(new Set());
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeFilterDrag, setActiveFilterDrag] = useState<{ field: string; value: string; label: string } | null>(null);
+  const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
   const [filters, setFilters] = useState<Filters>({ priority: null, assigneeId: null, recurrence: null, overdueOnly: false });
+  const [columnOrder, setColumnOrder] = useState<string[]>(board.columns.map((c) => c.id));
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -613,8 +855,21 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.id]);
 
+  useEffect(() => {
+    setColumnOrder(board.columns.map((c) => c.id));
+  }, [board.columns]);
+
+  const orderedColumns = columnOrder.map((id) => board.columns.find((c) => c.id === id)).filter((c): c is Board['columns'][number] => Boolean(c));
+
   async function addTask(columnId: string, title: string) {
     await tasksApi.createTask({ title, boardId: board.id, columnId });
+    load();
+  }
+
+  async function addSubtask(parentId: string, title: string) {
+    await tasksApi.createTask({ title, parentId });
+    const full = await tasksApi.getTask(parentId);
+    setSubtasksById((prev) => ({ ...prev, [parentId]: full.subtasks ?? [] }));
     load();
   }
 
@@ -632,9 +887,19 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
     onColumnsChanged();
   }
 
+  async function renameColumn(columnId: string, name: string) {
+    await tasksApi.updateColumn(columnId, { name });
+    onColumnsChanged();
+  }
+
   async function updateTask(taskId: string, data: Parameters<typeof tasksApi.updateTask>[1]) {
     const updated = await tasksApi.updateTask(taskId, data);
     setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    // A completion toggle can cascade to the parent task server-side
+    // (points: all subtasks done -> parent done; any done -> parent moved
+    // to In progress) — simplest to just re-sync from the server rather
+    // than reimplement that logic on the client.
+    if (data.completed !== undefined) load();
   }
 
   async function toggleExpand(taskId: string) {
@@ -673,6 +938,10 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
       setActiveFilterDrag({ field, value, label: value });
       return;
     }
+    if (board.columns.some((c) => c.id === id)) {
+      setDraggingColumnId(id);
+      return;
+    }
     setActiveTask(tasks.find((t) => t.id === id) ?? null);
   }
 
@@ -684,7 +953,7 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
     const { active, over } = event;
     if (!over) return;
     const activeId = String(active.id);
-    if (activeId.startsWith('filter:')) return;
+    if (activeId.startsWith('filter:') || draggingColumnId) return;
     const dragged = tasks.find((t) => t.id === activeId);
     if (!dragged) return;
     const overTask = tasks.find((t) => t.id === over.id);
@@ -697,15 +966,29 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
     const { active, over } = event;
     setActiveTask(null);
     setActiveFilterDrag(null);
+    const wasColumnDrag = draggingColumnId;
+    setDraggingColumnId(null);
     if (!over) return;
 
     const activeId = String(active.id);
+
     if (activeId.startsWith('filter:')) {
       const overTaskForFilter = tasks.find((t) => t.id === over.id);
       if (!overTaskForFilter) return;
       const [, field, value] = activeId.split(':');
       if (field === 'assigneeId') await updateTask(overTaskForFilter.id, { assigneeId: value });
       else await updateTask(overTaskForFilter.id, { [field]: value } as never);
+      return;
+    }
+
+    if (wasColumnDrag) {
+      const oldIndex = columnOrder.indexOf(activeId);
+      const newIndex = columnOrder.indexOf(String(over.id));
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+      const reordered = arrayMove(columnOrder, oldIndex, newIndex);
+      setColumnOrder(reordered);
+      await tasksApi.reorderColumns(board.id, reordered);
+      onColumnsChanged();
       return;
     }
 
@@ -743,7 +1026,6 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
           <span className="bg-background text-foreground inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium shadow-sm">
-            <LayoutGrid className="size-3.5" />
             Board
           </span>
           <Tooltip>
@@ -774,62 +1056,64 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {board.columns.map((column) => {
-            const columnTasks = visibleTasks.filter((t) => t.columnId === column.id).sort((a, b) => a.order - b.order);
-            return (
-              <div key={column.id} className="w-72 shrink-0 overflow-hidden rounded-lg" style={{ background: hexToRgba(column.color ?? DEFAULT_COLUMN_COLOR, 0.08) }}>
-                <ColumnHeader column={column} onColorChange={(color) => changeColumnColor(column.id, color)} />
-
-                <div className="flex flex-col gap-2 p-2">
+        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {orderedColumns.map((column) => {
+              const columnTasks = visibleTasks.filter((t) => t.columnId === column.id).sort((a, b) => a.order - b.order);
+              return (
+                <BoardColumnContainer
+                  key={column.id}
+                  column={column}
+                  onColorChange={(color) => changeColumnColor(column.id, color)}
+                  onRename={(name) => renameColumn(column.id, name)}
+                >
                   <AddTaskRow onAdd={(title) => addTask(column.id, title)} />
 
                   <SortableContext items={columnTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                    <BoardColumn columnId={column.id}>
-                      {columnTasks.map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          onOpen={() => onOpenTask(task.id)}
-                          expanded={expanded.has(task.id)}
-                          onToggleExpand={() => toggleExpand(task.id)}
-                          subtasks={subtasksById[task.id]}
-                          loadingSubtasks={loadingSubtaskIds.has(task.id)}
-                          onToggleSubtask={toggleSubtaskDone}
-                          onUpdate={(data) => updateTask(task.id, data)}
-                          users={users}
-                        />
-                      ))}
-                    </BoardColumn>
+                    {columnTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onOpen={() => onOpenTask(task.id)}
+                        expanded={expanded.has(task.id)}
+                        onToggleExpand={() => toggleExpand(task.id)}
+                        subtasks={subtasksById[task.id]}
+                        loadingSubtasks={loadingSubtaskIds.has(task.id)}
+                        onToggleSubtask={toggleSubtaskDone}
+                        onAddSubtask={(title) => addSubtask(task.id, title)}
+                        onUpdate={(data) => updateTask(task.id, data)}
+                        users={users}
+                      />
+                    ))}
                   </SortableContext>
-                </div>
-              </div>
-            );
-          })}
+                </BoardColumnContainer>
+              );
+            })}
 
-          <div className="w-64 shrink-0">
-            {addingColumn ? (
-              <form onSubmit={addColumn} className="flex gap-1">
-                <Input
-                  autoFocus
-                  value={newColumnName}
-                  onChange={(e) => setNewColumnName(e.target.value)}
-                  onBlur={() => !newColumnName.trim() && setAddingColumn(false)}
-                  placeholder="Column name…"
-                  className="h-8 text-sm"
-                />
-                <Button type="submit" size="icon" variant="ghost" className="size-8 shrink-0">
+            <div className="w-64 shrink-0">
+              {addingColumn ? (
+                <form onSubmit={addColumn} className="flex gap-1">
+                  <Input
+                    autoFocus
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    onBlur={() => !newColumnName.trim() && setAddingColumn(false)}
+                    placeholder="Column name…"
+                    className="h-8 text-sm"
+                  />
+                  <Button type="submit" size="icon" variant="ghost" className="size-8 shrink-0">
+                    <Plus className="size-4" />
+                  </Button>
+                </form>
+              ) : (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAddingColumn(true)}>
                   <Plus className="size-4" />
+                  Add column
                 </Button>
-              </form>
-            ) : (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setAddingColumn(true)}>
-                <Plus className="size-4" />
-                Add column
-              </Button>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </SortableContext>
 
         <DragOverlay>
           {activeTask && (

@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, Send } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { Button } from '@/components/ui/button';
-import { ChatBubble, ChatBubbleAvatar, ChatBubbleMessage } from '@/components/ui/chat-bubble';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '../../app/PermissionsContext';
+import { CommentThread } from '../comments/CommentThread';
 import { tasksApi } from './api';
 import type { Task, TaskActivity, TaskComment } from './types';
 
@@ -19,92 +19,27 @@ interface TaskDrawerProps {
   onChanged: () => void;
 }
 
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
-
-function isEmptyHtml(html: string) {
-  return html.replace(/<[^>]+>/g, '').trim().length === 0;
-}
-
-// Same bubble styling and composer shape as AnnouncementComments — no
-// reactions/replies/edit here though, TaskComment is deliberately flatter
-// (same reasoning the schema comment on that model gives).
+// The same shared comment thread Announcements uses — reactions, replies,
+// edit, the floating composer, all of it — not a cut-down copy.
 function ChatTab({ taskId }: { taskId: string }) {
-  const { user } = usePermissions();
-  const [comments, setComments] = useState<TaskComment[]>([]);
-  const [draft, setDraft] = useState('');
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [posting, setPosting] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    tasksApi
-      .listComments(taskId)
-      .then(setComments)
-      .finally(() => setLoading(false));
-  }, [taskId]);
-
-  async function send() {
-    if (isEmptyHtml(draft) || posting) return;
-    setPosting(true);
-    try {
-      const comment = await tasksApi.createComment(taskId, draft);
-      setComments((prev) => [...prev, comment]);
-      setDraft('');
-      editor?.commands.clearContent();
-    } finally {
-      setPosting(false);
-    }
-  }
+  const { user, has } = usePermissions();
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-2">
-        {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
-        {!loading && comments.length === 0 && <p className="text-muted-foreground text-sm">No messages yet.</p>}
-        {comments.map((c) => {
-          const own = c.authorId === user?.id;
-          return (
-            <ChatBubble key={c.id} variant={own ? 'sent' : 'received'}>
-              <ChatBubbleAvatar fallback={initials(c.author.name)} />
-              <div className="flex min-w-0 flex-col">
-                {!own && <span className="text-muted-foreground mb-1 px-1 text-xs font-medium">{c.author.name}</span>}
-                <ChatBubbleMessage
-                  variant={own ? 'sent' : 'received'}
-                  html={c.text}
-                  meta={formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
-                />
-              </div>
-            </ChatBubble>
-          );
-        })}
-      </div>
-
-      <div className="border-input focus-within:border-ring mt-2 flex shrink-0 items-end gap-1 rounded-2xl border px-1.5 py-1 transition-colors">
-        <RichTextEditor
-          value={draft}
-          onChange={setDraft}
-          onEditorReady={setEditor}
-          placeholder="Write a message…"
-          toolbar={false}
-          bordered={false}
-          minHeight="20px"
-          resizable={false}
-          className="min-w-0 flex-1"
-          contentClassName="px-2 py-1"
-        />
-        <Button type="button" size="icon" className="size-8 shrink-0 rounded-full" onClick={send} disabled={posting}>
-          <Send className="size-4" />
-        </Button>
-      </div>
-    </div>
+    <CommentThread<TaskComment>
+      threadKey={taskId}
+      className="h-full"
+      currentUserId={user?.id}
+      canDeleteComment={() => has('tasks:delete')}
+      emptyTitle="No messages yet"
+      emptyHint="Say something about this task."
+      api={{
+        list: () => tasksApi.listComments(taskId),
+        create: (text, replyToId) => tasksApi.createComment(taskId, text, replyToId),
+        update: (commentId, text) => tasksApi.updateComment(taskId, commentId, text),
+        remove: (commentId) => tasksApi.removeComment(taskId, commentId),
+        toggleReaction: (commentId, emoji) => tasksApi.toggleCommentReaction(taskId, commentId, emoji),
+      }}
+    />
   );
 }
 
@@ -154,6 +89,8 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
   const [task, setTask] = useState<Task | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionDirty, setDescriptionDirty] = useState(false);
+  const [savingDescription, setSavingDescription] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
   const [descriptionEditor, setDescriptionEditor] = useState<Editor | null>(null);
 
@@ -166,6 +103,7 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
       setTask(t);
       setTitle(t.title);
       setDescription(t.description ?? '');
+      setDescriptionDirty(false);
       // The editor instance persists across tasks (the drawer stays
       // mounted while switching which card is open) — its content is only
       // the *initial* value on creation, so switching tasks needs this
@@ -186,10 +124,16 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
   }
 
   async function saveDescription() {
-    if (!task || description === (task.description ?? '')) return;
-    const updated = await tasksApi.updateTask(task.id, { description });
-    setTask(updated);
-    onChanged();
+    if (!task || description === (task.description ?? '') || savingDescription) return;
+    setSavingDescription(true);
+    try {
+      const updated = await tasksApi.updateTask(task.id, { description });
+      setTask(updated);
+      setDescriptionDirty(false);
+      onChanged();
+    } finally {
+      setSavingDescription(false);
+    }
   }
 
   async function addSubtask(e: React.FormEvent) {
@@ -225,7 +169,7 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
         </SheetHeader>
 
         {task && (
-          <Tabs defaultValue="chat" className="flex-1 overflow-y-auto px-4">
+          <Tabs defaultValue="chat" className="flex min-h-0 flex-1 flex-col px-4">
             <TabsList>
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="description">Description</TabsTrigger>
@@ -233,40 +177,56 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
               <TabsTrigger value="subtasks">Subtasks{task.subtasks?.length ? ` (${task.subtasks.length})` : ''}</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="chat" className="mt-3 h-full">
+            {/* Chat owns its own single scroll region (with the floating
+                composer pinned inside it) — it must NOT also sit inside an
+                overflow-y-auto ancestor, or the outer box scrolls instead
+                and the composer ends up clipped at the bottom. */}
+            <TabsContent value="chat" className="mt-3 flex min-h-0 flex-col">
               <ChatTab taskId={task.id} />
             </TabsContent>
 
-            <TabsContent value="description" className="mt-3">
+            <TabsContent value="description" className="mt-3 flex min-h-0 flex-col gap-2 overflow-y-auto">
               <RichTextEditor
                 value={description}
-                onChange={setDescription}
+                onChange={(html) => {
+                  setDescription(html);
+                  setDescriptionDirty(html !== (task.description ?? ''));
+                }}
                 onBlur={saveDescription}
                 onEditorReady={setDescriptionEditor}
                 placeholder="Add a description…"
                 minHeight="128px"
               />
+              <Button type="button" size="sm" className="self-end" onClick={saveDescription} disabled={!descriptionDirty || savingDescription}>
+                {savingDescription ? 'Saving…' : 'Save'}
+              </Button>
             </TabsContent>
 
-            <TabsContent value="timeline" className="mt-3">
+            <TabsContent value="timeline" className="mt-3 min-h-0 overflow-y-auto">
               <TimelineTab taskId={task.id} />
             </TabsContent>
 
-            <TabsContent value="subtasks" className="mt-3 flex flex-col gap-3">
-              <ul className="flex flex-col gap-2">
+            <TabsContent value="subtasks" className="mt-3 flex min-h-0 flex-col gap-3 overflow-y-auto">
+              <ul className="ml-3.5 flex flex-col gap-1.5 py-0.5">
                 {task.subtasks?.map((sub) => (
-                  <li key={sub.id} className="bg-card flex items-center gap-2 rounded-md border p-2 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => toggleSubtask(sub.id, !sub.completed)}
-                      className={cn(
-                        'flex size-4 shrink-0 items-center justify-center rounded-full border',
-                        sub.completed ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40',
-                      )}
-                    >
-                      {sub.completed && <Check className="size-3" />}
-                    </button>
-                    <span className={cn('flex-1', sub.completed && 'text-muted-foreground line-through')}>{sub.title}</span>
+                  <li key={sub.id} className="relative pl-4">
+                    {/* Rounded branch off the trunk, not a plain line down
+                        — each item's own top-half curves right into it, and
+                        consecutive items stack into one continuous trunk. */}
+                    <span className="border-border absolute top-0 left-0 h-1/2 w-3 rounded-bl-md border-b border-l" aria-hidden />
+                    <div className="bg-card flex items-center gap-2 rounded-md border p-2 text-sm">
+                      <button
+                        type="button"
+                        onClick={() => toggleSubtask(sub.id, !sub.completed)}
+                        className={cn(
+                          'flex size-4 shrink-0 items-center justify-center rounded-full border',
+                          sub.completed ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40',
+                        )}
+                      >
+                        {sub.completed && <Check className="size-3" />}
+                      </button>
+                      <span className={cn('flex-1', sub.completed && 'text-muted-foreground line-through')}>{sub.title}</span>
+                    </div>
                   </li>
                 ))}
                 {!task.subtasks?.length && <p className="text-muted-foreground text-sm">No subtasks yet.</p>}

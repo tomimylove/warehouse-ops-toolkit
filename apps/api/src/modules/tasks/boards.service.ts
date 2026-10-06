@@ -51,6 +51,21 @@ export class BoardsService {
     });
   }
 
+  async updateBoard(id: string, data: { name?: string; order?: number }) {
+    const board = await this.prisma.board.findUnique({ where: { id } });
+    if (!board) throw new NotFoundException(`Board ${id} not found`);
+    return this.prisma.board.update({ where: { id }, data });
+  }
+
+  // Whole sibling set's new order in one call (drag-and-drop end), rather
+  // than N individual order PATCHes.
+  async reorderBoards(projectId: string, orderedIds: string[]) {
+    await this.prisma.$transaction(
+      orderedIds.map((id, order) => this.prisma.board.update({ where: { id, projectId }, data: { order } })),
+    );
+    return this.listForProject(projectId);
+  }
+
   async createColumn(boardId: string, name: string) {
     const board = await this.prisma.board.findUnique({ where: { id: boardId } });
     if (!board) throw new NotFoundException(`Board ${boardId} not found`);
@@ -63,5 +78,12 @@ export class BoardsService {
     const column = await this.prisma.column.findUnique({ where: { id } });
     if (!column) throw new NotFoundException(`Column ${id} not found`);
     return this.prisma.column.update({ where: { id }, data });
+  }
+
+  async reorderColumns(boardId: string, orderedIds: string[]) {
+    await this.prisma.$transaction(
+      orderedIds.map((id, order) => this.prisma.column.update({ where: { id, boardId }, data: { order } })),
+    );
+    return this.get(boardId);
   }
 }

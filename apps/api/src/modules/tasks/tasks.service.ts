@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Task, TaskRecurrence } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -10,6 +10,17 @@ const include = {
 } as const;
 
 const RECUR_DAYS: Record<TaskRecurrence, number> = { NONE: 0, DAILY: 1, WEEKLY: 7, MONTHLY: 30 };
+
+const commentInclude = {
+  author: { select: { id: true, name: true } },
+  replyTo: { include: { author: { select: { id: true, name: true } } } },
+} as const;
+
+type ReactionsColumn = Record<string, string[]>;
+type ResolvedReactions = Record<string, { id: string; name: string }[]>;
+interface HasReactions {
+  reactions: unknown;
+}
 
 @Injectable()
 export class TasksService {
@@ -114,7 +125,41 @@ export class TasksService {
       if (column?.name === 'Done') await this.recur(task);
     }
 
+    // A subtask's own completion toggle propagates up to its parent card
+    // (the parent itself has no boardId/columnId change to react to here —
+    // it's the subtask that changed, not it).
+    if (dto.completed !== undefined && dto.completed !== before.completed && before.parentId) {
+      await this.cascadeSubtaskCompletion(before.parentId, actorId);
+    }
+
     return task;
+  }
+
+  // All subtasks done -> parent marked completed; any one done (while the
+  // parent isn't fully done) -> parent moved into its board's "In progress"
+  // column, so a card visibly reflects subtask work without the user
+  // re-opening the drawer or dragging it themselves.
+  private async cascadeSubtaskCompletion(parentId: string, actorId: string) {
+    const parent = await this.prisma.task.findUnique({ where: { id: parentId } });
+    if (!parent) return;
+
+    const subtasks = await this.prisma.task.findMany({ where: { parentId }, select: { completed: true } });
+    if (subtasks.length === 0) return;
+    const allDone = subtasks.every((s) => s.completed);
+    const anyDone = subtasks.some((s) => s.completed);
+
+    if (allDone !== parent.completed) {
+      await this.prisma.task.update({ where: { id: parentId }, data: { completed: allDone } });
+      if (parent.boardId) await this.log(parentId, actorId, allDone ? 'All subtasks done — marked as done' : 'Reopened');
+    }
+
+    if (anyDone && !allDone && parent.boardId) {
+      const inProgress = await this.prisma.column.findFirst({ where: { boardId: parent.boardId, name: 'In progress' } });
+      if (inProgress && parent.columnId !== inProgress.id) {
+        await this.prisma.task.update({ where: { id: parentId }, data: { columnId: inProgress.id } });
+        await this.log(parentId, actorId, 'Moved to In progress');
+      }
+    }
   }
 
   remove(id: string) {
@@ -123,19 +168,85 @@ export class TasksService {
     return this.prisma.task.delete({ where: { id } });
   }
 
-  listComments(taskId: string) {
-    return this.prisma.taskComment.findMany({
+  // Same { emoji: userId[] } shape and batched resolution as
+  // AnnouncementCommentsService.resolveReactions — kept here rather than
+  // factored into a shared service, since Prisma's generated delegate
+  // type (announcementComment vs taskComment) differs per model and a
+  // generic wrapper would need as much code as this duplication does.
+  private async resolveReactions<T extends HasReactions>(
+    comments: T[],
+  ): Promise<(Omit<T, 'reactions'> & { reactions: ResolvedReactions })[]> {
+    const userIds = new Set<string>();
+    for (const comment of comments) {
+      for (const ids of Object.values(comment.reactions as ReactionsColumn)) {
+        ids.forEach((id) => userIds.add(id));
+      }
+    }
+    const users = await this.prisma.user.findMany({ where: { id: { in: [...userIds] } }, select: { id: true, name: true } });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    return comments.map((comment) => ({
+      ...comment,
+      reactions: Object.fromEntries(
+        Object.entries(comment.reactions as ReactionsColumn).map(([emoji, ids]) => [
+          emoji,
+          ids.map((id) => byId.get(id)).filter((u): u is { id: string; name: string } => Boolean(u)),
+        ]),
+      ),
+    }));
+  }
+
+  private async resolveReaction<T extends HasReactions>(comment: T) {
+    const [resolved] = await this.resolveReactions([comment]);
+    return resolved;
+  }
+
+  async listComments(taskId: string) {
+    const comments = await this.prisma.taskComment.findMany({
       where: { taskId },
       orderBy: { createdAt: 'asc' },
-      include: { author: { select: { id: true, name: true } } },
+      include: commentInclude,
     });
+    return this.resolveReactions(comments);
   }
 
   async createComment(taskId: string, authorId: string, dto: CreateTaskCommentDto) {
-    return this.prisma.taskComment.create({
-      data: { taskId, authorId, text: dto.text },
-      include: { author: { select: { id: true, name: true } } },
+    const comment = await this.prisma.taskComment.create({
+      data: { taskId, authorId, text: dto.text, replyToId: dto.replyToId },
+      include: commentInclude,
     });
+    return this.resolveReaction(comment);
+  }
+
+  // Editing is author-only, same as AnnouncementComment — rewriting
+  // someone else's words isn't a moderation action.
+  async updateComment(commentId: string, userId: string, text: string) {
+    const comment = await this.prisma.taskComment.findUnique({ where: { id: commentId } });
+    if (!comment) throw new NotFoundException(`Comment ${commentId} not found`);
+    if (comment.authorId !== userId) throw new ForbiddenException('Only the comment author can edit this comment');
+    const updated = await this.prisma.taskComment.update({ where: { id: commentId }, data: { text }, include: commentInclude });
+    return this.resolveReaction(updated);
+  }
+
+  // Deletable by its own author, or anyone with tasks:delete.
+  async removeComment(commentId: string, userId: string, canModerate: boolean) {
+    const comment = await this.prisma.taskComment.findUnique({ where: { id: commentId } });
+    if (!comment) throw new NotFoundException(`Comment ${commentId} not found`);
+    if (comment.authorId !== userId && !canModerate) {
+      throw new ForbiddenException('Only the comment author or an admin can delete this comment');
+    }
+    await this.prisma.taskComment.delete({ where: { id: commentId } });
+  }
+
+  async toggleCommentReaction(commentId: string, userId: string, emoji: string) {
+    const comment = await this.prisma.taskComment.findUnique({ where: { id: commentId } });
+    if (!comment) throw new NotFoundException(`Comment ${commentId} not found`);
+    const reactions = { ...(comment.reactions as ReactionsColumn) };
+    const users = reactions[emoji] ?? [];
+    const nextUsers = users.includes(userId) ? users.filter((id) => id !== userId) : [...users, userId];
+    if (nextUsers.length > 0) reactions[emoji] = nextUsers;
+    else delete reactions[emoji];
+    const updated = await this.prisma.taskComment.update({ where: { id: commentId }, data: { reactions }, include: commentInclude });
+    return this.resolveReaction(updated);
   }
 
   listActivity(taskId: string) {

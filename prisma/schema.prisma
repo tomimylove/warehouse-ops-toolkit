@@ -296,10 +296,10 @@ model Task {
   @@map("Tasks")
 }
 
-// Per-task chat (YouGile has one per card) — flat, no replies/reactions
-// for v1, same reasoning AnnouncementComment gave before replies/reactions
-// were added to it: start simple, the generic comment pattern already
-// exists if this grows the same way later.
+// Per-task chat (YouGile has one per card) — same shape as
+// AnnouncementComment (reactions + threaded replies), not a flatter copy,
+// so both chat UIs can share one real component instead of Tasks getting
+// a cut-down version of what Announcements already has.
 model TaskComment {
   id        String   @id @default(cuid())
   taskId    String
@@ -307,7 +307,12 @@ model TaskComment {
   authorId  String
   author    User     @relation(fields: [authorId], references: [id])
   text      String
+  reactions Json     @default("{}")
   createdAt DateTime @default(now())
+
+  replyToId String?
+  replyTo   TaskComment?  @relation("TaskCommentReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   TaskComment[] @relation("TaskCommentReplies")
 
   @@map("TaskComments")
 }

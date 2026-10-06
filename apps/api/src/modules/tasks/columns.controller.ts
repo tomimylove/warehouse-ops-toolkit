@@ -4,6 +4,7 @@ import { RequirePermission } from '../auth/require-permission.decorator';
 import { BoardsService } from './boards.service';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
+import { ReorderDto } from './dto/reorder.dto';
 
 // create() is nested under the board it belongs to; update() addresses a
 // column directly by its own id instead — a second @Controller in the same
@@ -17,6 +18,12 @@ export class ColumnsController {
   @RequirePermission('tasks:create')
   create(@Param('boardId') boardId: string, @Body() dto: CreateColumnDto) {
     return this.boards.createColumn(boardId, dto.name);
+  }
+
+  @Patch('reorder')
+  @RequirePermission('tasks:edit')
+  reorder(@Param('boardId') boardId: string, @Body() dto: ReorderDto) {
+    return this.boards.reorderColumns(boardId, dto.orderedIds);
   }
 }
 
