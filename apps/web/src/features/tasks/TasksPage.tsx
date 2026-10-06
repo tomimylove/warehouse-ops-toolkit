@@ -196,7 +196,12 @@ export function TasksPage() {
           </div>
 
           {activeBoard ? (
-            <BoardView key={`${activeBoard.id}-${refreshKey}`} board={activeBoard} onOpenTask={setOpenTaskId} />
+            <BoardView
+              key={`${activeBoard.id}-${refreshKey}`}
+              board={activeBoard}
+              onOpenTask={setOpenTaskId}
+              onColumnsChanged={load}
+            />
           ) : (
             <EmptyState message="No boards yet — add one above." />
           )}
