@@ -5,7 +5,11 @@ services:
     name: warehouse-ops-api
     runtime: node
     plan: free
-    region: frankfurt
+    # Supabase project lives in AWS ap-northeast-1 (Tokyo). Frankfurt's
+    # route to the pooler was unreachable (TCP never completed, DNS and
+    # Supabase status both checked out clean) — trying Singapore as a
+    # closer, differently-routed region.
+    region: singapore
     buildCommand: npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build:api
     startCommand: node apps/api/dist/main.js
     envVars:
