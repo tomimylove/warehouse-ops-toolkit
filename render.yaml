@@ -11,6 +11,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20.17.0
+      # Supabase's pooler is IPv4-only; Render's containers can prefer IPv6
+      # when resolving the hostname, which hangs instead of falling back
+      # and surfaces as a plain "Can't reach database server" (P1001).
+      - key: NODE_OPTIONS
+        value: --dns-result-order=ipv4first
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL
