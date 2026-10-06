@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { History, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Trash2, X } from 'lucide-react';
+import { History, MoreHorizontal, PartyPopper, Pencil, Pin, PinOff, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { announcementsApi } from './api';
 import { coverFor } from './covers';
@@ -63,9 +63,11 @@ export function AnnouncementsPage() {
         if (prev && list.some((a) => a.id === prev)) return prev;
         // Nothing selected (or the selection vanished) — default to the
         // oldest unread one, so working through the backlog starts at the
-        // start of it; once everything's read, fall back to the newest.
+        // start of it. If everything's already read, leave nothing selected
+        // rather than reopening the newest — the reader pane shows an
+        // "all caught up" state instead.
         const unread = [...list].filter((a) => !a.isRead).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return unread[0]?.id ?? list[0]?.id ?? null;
+        return unread[0]?.id ?? null;
       });
     } catch {
       setError('Could not load announcements. Is the API running?');
@@ -303,14 +305,9 @@ export function AnnouncementsPage() {
             </ul>
           </div>
 
-          <div className="flex min-h-0 flex-col">
-            {selected && (
-              <>
-                {/* Capped + independently scrollable so a long announcement
-                    body can never push the composer below the fold — the
-                    discussion pane under it always keeps its share of the
-                    column. */}
-                <div className="max-h-[42%] shrink-0 overflow-y-auto" ref={readerRef}>
+          <div className="min-h-0 overflow-y-auto" ref={readerRef}>
+            {selected ? (
+              <div>
                 <h2 className="text-lg font-semibold">{selected.title}</h2>
 
                 <div className="mt-2 flex items-center justify-between gap-2">
@@ -361,10 +358,19 @@ export function AnnouncementsPage() {
                 {/* Tiptap output is our own sanitized rich text — safe to render.
                     If this ever accepts arbitrary user HTML from elsewhere, sanitize first. */}
                 <div className={`mt-4 text-sm ${richTextContentClass}`} dangerouslySetInnerHTML={{ __html: selected.body }} />
-                </div>
 
-                <AnnouncementComments announcementId={selected.id} className="min-h-0 flex-1" />
-              </>
+                <AnnouncementComments announcementId={selected.id} />
+              </div>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                <div className="bg-muted flex size-16 items-center justify-center rounded-full">
+                  <PartyPopper className="text-muted-foreground size-7" />
+                </div>
+                <p className="text-sm font-medium">All caught up</p>
+                <p className="text-muted-foreground max-w-56 text-xs">
+                  You've read every announcement. New ones will show up here.
+                </p>
+              </div>
             )}
           </div>
 
