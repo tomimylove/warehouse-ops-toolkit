@@ -63,11 +63,12 @@ export function AnnouncementsPage() {
         if (prev && list.some((a) => a.id === prev)) return prev;
         // Nothing selected (or the selection vanished) — default to the
         // oldest unread one, so working through the backlog starts at the
-        // start of it. If everything's already read, leave nothing selected
-        // rather than reopening the newest — the reader pane shows an
-        // "all caught up" state instead.
+        // start of it. Once everything's read, fall back to the pinned
+        // announcement (at most one can be pinned) rather than an empty
+        // "all caught up" screen — only with nothing unread AND nothing
+        // pinned does that empty state actually show.
         const unread = [...list].filter((a) => !a.isRead).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        return unread[0]?.id ?? null;
+        return unread[0]?.id ?? list.find((a) => a.pinned)?.id ?? null;
       });
     } catch {
       setError('Could not load announcements. Is the API running?');
@@ -113,7 +114,10 @@ export function AnnouncementsPage() {
 
   async function setPinned(item: Announcement, pinned: boolean, { announceUndo = true } = {}) {
     const updated = await announcementsApi.update(item.id, { pinned });
-    setItems((prev) => prev.map((a) => (a.id === item.id ? updated : a)));
+    // Only one announcement can be pinned at a time — the API already
+    // demotes whatever was pinned before; mirror that locally too; so the
+    // old pin badge doesn't linger until the next full reload.
+    setItems((prev) => prev.map((a) => (a.id === item.id ? updated : pinned ? { ...a, pinned: false } : a)));
     if (announceUndo) {
       toast(pinned ? 'Pinned' : 'Unpinned', {
         description: `"${item.title}" ${pinned ? 'now shows at the top of the feed.' : 'no longer shows at the top.'}`,
@@ -151,7 +155,18 @@ export function AnnouncementsPage() {
   const overflowTeams = teams.slice(INLINE_TEAM_TABS);
 
   return (
-    <section className="mx-auto flex h-full w-full max-w-[1360px] flex-col">
+    // h-full alone doesn't bound anything here: nothing in the ancestor
+    // chain (AppShell's content div, SidebarInset, the sidebar wrapper's
+    // min-h-svh) actually clips height — this app relies on normal page
+    // scrolling everywhere else, so "100%" resolves against an ancestor
+    // that just grows to fit its content. That's exactly why the floating
+    // composer below never had a real viewport to pin against: this
+    // section's own box was growing with its content instead of being
+    // capped, so "absolute bottom-0" landed at the bottom of *everything*,
+    // not the visible area. calc(100vh-3rem) ties this page's height
+    // directly to the viewport (3rem = AppShell's p-6 top+bottom padding),
+    // independent of that broken ancestor chain.
+    <section className="mx-auto flex h-[calc(100vh-3rem)] w-full max-w-[1360px] flex-col">
       <PageHeader
         title="Announcements"
         subtitle="What the team needs to know, in one place."
@@ -241,8 +256,12 @@ export function AnnouncementsPage() {
         />
       )}
 
+      {/* grid-rows-[minmax(0,1fr)] is explicit on purpose — the default
+          auto-sized implicit row doesn't reliably stretch its items to the
+          grid's own bounded height, which left every column's
+          min-h-0/overflow-y-auto with nothing real to clip against. */}
       {!loading && !error && filtered.length > 0 && (
-        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,720px)_280px] gap-4">
+        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,720px)_280px] grid-rows-[minmax(0,1fr)] gap-4">
           <div className="flex min-h-0 flex-col gap-2">
             <div className="relative shrink-0">
               <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />

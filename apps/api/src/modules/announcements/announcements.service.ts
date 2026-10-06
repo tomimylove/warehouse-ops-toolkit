@@ -67,6 +67,7 @@ export class AnnouncementsService {
       },
       include,
     });
+    if (dto.pinned) await this.unpinOthers(row.id);
     return toDto(row, false);
   }
 
@@ -97,8 +98,18 @@ export class AnnouncementsService {
         where: { announcementId_userId: { announcementId: id, userId } },
       }),
       onlyPinToggled ? Promise.resolve() : this.snapshotVersion(id, before, userId, changes),
+      // Only one announcement can be pinned at a time — pinning this one
+      // demotes whatever was pinned before, rather than piling them up.
+      dto.pinned === true ? this.unpinOthers(id) : Promise.resolve(),
     ]);
     return toDto(row, read !== null);
+  }
+
+  private unpinOthers(excludeId: string) {
+    return this.prisma.announcement.updateMany({
+      where: { pinned: true, id: { not: excludeId } },
+      data: { pinned: false },
+    });
   }
 
   remove(id: string) {
@@ -152,6 +163,7 @@ export class AnnouncementsService {
       },
       include,
     });
+    if (snapshot.pinned) await this.unpinOthers(announcementId);
     return toDto(row, true);
   }
 
