@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { History, MoreHorizontal, Pencil, Pin, PinOff, Plus, Trash2 } from 'lucide-react';
+import { History, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { announcementsApi } from './api';
 import { coverFor } from './covers';
 import { usePermissions } from '../../app/PermissionsContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { richTextContentClass } from '@/components/ui/RichTextEditor';
-import { Button, EmptyState, PageHeader } from '../../components/ui';
+import { Button, EmptyState, Input, PageHeader } from '../../components/ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +26,10 @@ import type { Announcement } from './types';
 
 const INLINE_TEAM_TABS = 4;
 
+function plainText(html: string) {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function initials(name: string) {
   return name
     .split(' ')
@@ -41,6 +45,7 @@ export function AnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [composerOpen, setComposerOpen] = useState(false);
@@ -78,7 +83,14 @@ export function AnnouncementsPage() {
     return Array.from(byId, ([id, name]) => ({ id, name }));
   }, [items]);
 
-  const filtered = teamFilter ? items.filter((a) => a.teams.some((t) => t.id === teamFilter)) : items;
+  const filtered = useMemo(() => {
+    const byTeam = teamFilter ? items.filter((a) => a.teams.some((t) => t.id === teamFilter)) : items;
+    const q = query.trim().toLowerCase();
+    if (!q) return byTeam;
+    return byTeam.filter(
+      (a) => a.title.toLowerCase().includes(q) || plainText(a.body).toLowerCase().includes(q) || a.author.name.toLowerCase().includes(q),
+    );
+  }, [items, teamFilter, query]);
   const unreadCount = items.filter((a) => !a.isRead).length;
   const selected = items.find((a) => a.id === selectedId) ?? null;
 
@@ -214,13 +226,29 @@ export function AnnouncementsPage() {
       )}
 
       {!loading && !error && filtered.length === 0 && (
-        <EmptyState message="No announcements yet — publish the first one above." />
+        <EmptyState
+          message={
+            items.length === 0
+              ? 'No announcements yet — publish the first one above.'
+              : 'No announcements match your search.'
+          }
+        />
       )}
 
       {!loading && !error && filtered.length > 0 && (
         <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,720px)_280px] gap-4">
-          <ul className="flex flex-col gap-1 overflow-y-auto">
-            {filtered.map((item) => {
+          <div className="flex min-h-0 flex-col gap-2">
+            <div className="relative shrink-0">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search announcements…"
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+            <ul className="flex flex-col gap-1 overflow-y-auto">
+              {filtered.map((item) => {
               const cover = coverFor(item.id, item.coverId);
               return (
                 <li key={item.id}>
@@ -250,8 +278,9 @@ export function AnnouncementsPage() {
                   </button>
                 </li>
               );
-            })}
-          </ul>
+              })}
+            </ul>
+          </div>
 
           <div className="min-h-0 overflow-y-auto">
             {selected && (
