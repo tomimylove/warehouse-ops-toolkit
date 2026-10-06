@@ -2,6 +2,11 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../../prisma/prisma.service';
 import type { CurrentUser } from '../auth/current-user.service';
 
+const include = {
+  author: { select: { id: true, name: true } },
+  replyTo: { include: { author: { select: { id: true, name: true } } } },
+} as const;
+
 @Injectable()
 export class AnnouncementCommentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -10,14 +15,14 @@ export class AnnouncementCommentsService {
     return this.prisma.announcementComment.findMany({
       where: { announcementId },
       orderBy: { createdAt: 'asc' },
-      include: { author: { select: { id: true, name: true } } },
+      include,
     });
   }
 
-  create(announcementId: string, authorId: string, text: string) {
+  create(announcementId: string, authorId: string, text: string, replyToId?: string) {
     return this.prisma.announcementComment.create({
-      data: { announcementId, authorId, text },
-      include: { author: { select: { id: true, name: true } } },
+      data: { announcementId, authorId, text, replyToId },
+      include,
     });
   }
 
@@ -49,7 +54,7 @@ export class AnnouncementCommentsService {
     return this.prisma.announcementComment.update({
       where: { id: commentId },
       data: { reactions },
-      include: { author: { select: { id: true, name: true } } },
+      include,
     });
   }
 }

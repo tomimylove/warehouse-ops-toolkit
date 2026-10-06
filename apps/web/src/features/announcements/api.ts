@@ -32,8 +32,11 @@ export const announcementsApi = {
   createTeam: (name: string) => request<Team>('/teams', { method: 'POST', body: JSON.stringify({ name }) }),
 
   listComments: (id: string) => request<AnnouncementComment[]>(`/announcements/${id}/comments`),
-  createComment: (id: string, text: string) =>
-    request<AnnouncementComment>(`/announcements/${id}/comments`, { method: 'POST', body: JSON.stringify({ text }) }),
+  createComment: (id: string, text: string, replyToId?: string) =>
+    request<AnnouncementComment>(`/announcements/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text, replyToId }),
+    }),
   removeComment: (id: string, commentId: string) =>
     request<void>(`/announcements/${id}/comments/${commentId}`, { method: 'DELETE' }),
   toggleCommentReaction: (id: string, commentId: string, emoji: string) =>

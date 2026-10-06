@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { Mic, Paperclip, SendHorizontal, SmilePlus, Trash2, Type } from 'lucide-react';
+import { Mic, Paperclip, Reply, SendHorizontal, SmilePlus, Trash2, Type, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,11 @@ function initials(name: string) {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+}
+
+function plainSnippet(html: string, max = 80) {
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
 const EMOJI = ['👍', '❤️', '😂', '🎉', '😮', '🙏', '👏', '🔥', '✅', '😊', '🤔', '👀'];
@@ -103,6 +108,7 @@ function Bubble({
   userId,
   onDelete,
   onToggleReaction,
+  onReply,
 }: {
   comment: AnnouncementComment;
   own: boolean;
@@ -110,6 +116,7 @@ function Bubble({
   userId?: string;
   onDelete: () => void;
   onToggleReaction: (emoji: string) => void;
+  onReply: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -120,25 +127,49 @@ function Bubble({
         <div className="flex min-w-0 flex-col">
           {!own && <span className="text-muted-foreground mb-1 px-1 text-xs font-medium">{comment.author.name}</span>}
           <div className="relative">
+            {comment.replyTo && (
+              <div className={cn('border-muted-foreground/30 mb-1 rounded-md border-l-2 px-2 py-1 text-xs opacity-70', own ? 'bg-primary/10' : 'bg-muted/60')}>
+                <div className="font-medium">{comment.replyTo.author.name}</div>
+                <div className="truncate">{plainSnippet(comment.replyTo.text, 60)}</div>
+              </div>
+            )}
             <ChatBubbleMessage variant={own ? 'sent' : 'received'} html={comment.text} />
             <ReactionBar reactions={comment.reactions} userId={userId} own={own} onToggle={onToggleReaction} />
+            <ChatBubbleActionWrapper variant={own ? 'sent' : 'received'}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ChatBubbleAction icon={<Reply className="size-3.5" />} onClick={onReply} />
+                </TooltipTrigger>
+                <TooltipContent>Reply</TooltipContent>
+              </Tooltip>
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <ChatBubbleAction icon={<SmilePlus className="size-3.5" />} />
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>React</TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-auto" align="center">
+                  <EmojiGrid
+                    onPick={(emoji) => {
+                      onToggleReaction(emoji);
+                      setPickerOpen(false);
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+              {canDelete && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <ChatBubbleAction icon={<Trash2 className="size-3.5" />} onClick={onDelete} />
+                  </TooltipTrigger>
+                  <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
+              )}
+            </ChatBubbleActionWrapper>
           </div>
-          <ChatBubbleActionWrapper variant={own ? 'sent' : 'received'}>
-            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-              <PopoverTrigger asChild>
-                <ChatBubbleAction icon={<SmilePlus className="size-3.5" />} />
-              </PopoverTrigger>
-              <PopoverContent className="w-auto" align="center">
-                <EmojiGrid
-                  onPick={(emoji) => {
-                    onToggleReaction(emoji);
-                    setPickerOpen(false);
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-            {canDelete && <ChatBubbleAction icon={<Trash2 className="size-3.5" />} onClick={onDelete} />}
-          </ChatBubbleActionWrapper>
         </div>
       </ChatBubble>
       <ChatBubbleTimestamp
@@ -158,12 +189,14 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [posting, setPosting] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [replyTo, setReplyTo] = useState<AnnouncementComment | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setComments([]);
+    setReplyTo(null);
     announcementsApi
       .listComments(announcementId)
       .then((data) => {
@@ -191,9 +224,10 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
     if (!hasText || posting) return;
     setPosting(true);
     try {
-      const comment = await announcementsApi.createComment(announcementId, draft);
+      const comment = await announcementsApi.createComment(announcementId, draft, replyTo?.id);
       setComments((prev) => [...prev, comment]);
       setDraft('');
+      setReplyTo(null);
       editor?.commands.clearContent();
     } finally {
       setPosting(false);
@@ -234,6 +268,7 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
               userId={user?.id}
               onDelete={() => handleDelete(c.id)}
               onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
+              onReply={() => setReplyTo(c)}
             />
           ))}
           <div ref={bottomRef} />
@@ -244,6 +279,34 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
           and the icon row both live inside it, so nothing looks bolted on
           and nothing (send/mic included) pokes out past the border. */}
       <div className="border-input focus-within:border-ring mt-3 overflow-hidden rounded-2xl border transition-colors">
+        <AnimatePresence initial={false}>
+          {replyTo && (
+            <motion.div
+              key="reply"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="border-input overflow-hidden border-b"
+            >
+              <div className="flex items-center gap-2 px-3 py-1.5">
+                <Reply className="text-muted-foreground size-3.5 shrink-0" />
+                <div className="min-w-0 flex-1 text-xs">
+                  <span className="font-medium">Replying to {replyTo.author.name}</span>
+                  <span className="text-muted-foreground ml-1.5">{plainSnippet(replyTo.text, 50)}</span>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" className="size-6 shrink-0 rounded-full" onClick={() => setReplyTo(null)}>
+                      <X className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Cancel reply</TooltipContent>
+                </Tooltip>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence initial={false}>
           {richOpen && editor && (
             <motion.div
@@ -259,27 +322,6 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
         </AnimatePresence>
 
         <div className="flex items-center gap-0.5 px-1.5 py-1">
-          <AnimatePresence initial={false}>
-            {!hasText && (
-              <motion.div
-                key="attach"
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                className="overflow-hidden"
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full" disabled>
-                      <Paperclip className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Attachments — coming soon</TooltipContent>
-                </Tooltip>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           <RichTextEditor
             value={draft}
             onChange={setDraft}
@@ -294,22 +336,41 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
             onSubmitKey={handlePost}
           />
 
-          <Button
-            type="button"
-            variant={richOpen ? 'secondary' : 'ghost'}
-            size="icon"
-            className="size-8 shrink-0 rounded-full"
-            onClick={() => setRichOpen((v) => !v)}
-          >
-            <Type className="size-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full" disabled>
+                <Paperclip className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Attachments — coming soon</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant={richOpen ? 'secondary' : 'ghost'}
+                size="icon"
+                className="size-8 shrink-0 rounded-full"
+                onClick={() => setRichOpen((v) => !v)}
+              >
+                <Type className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Formatting</TooltipContent>
+          </Tooltip>
 
           <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full">
-                <SmilePlus className="size-4" />
-              </Button>
-            </PopoverTrigger>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full">
+                    <SmilePlus className="size-4" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Emoji</TooltipContent>
+            </Tooltip>
             <PopoverContent className="w-auto" align="end">
               <EmojiGrid onPick={insertEmoji} />
             </PopoverContent>
@@ -318,9 +379,14 @@ export function AnnouncementComments({ announcementId }: { announcementId: strin
           <AnimatePresence mode="wait" initial={false}>
             {hasText ? (
               <motion.div key="send" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}>
-                <Button type="button" size="icon" className="size-8 shrink-0 rounded-full" onClick={handlePost} disabled={posting}>
-                  <SendHorizontal className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" size="icon" className="size-8 shrink-0 rounded-full" onClick={handlePost} disabled={posting}>
+                      <SendHorizontal className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Send</TooltipContent>
+                </Tooltip>
               </motion.div>
             ) : (
               <motion.div key="mic" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}>

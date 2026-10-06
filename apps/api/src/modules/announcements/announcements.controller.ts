@@ -97,7 +97,7 @@ export class AnnouncementsController {
   @RequirePermission('announcements:view')
   async createComment(@Param('id') id: string, @Body() dto: CreateCommentDto) {
     const user = await this.currentUser.get();
-    return this.comments.create(id, user.id, dto.text);
+    return this.comments.create(id, user.id, dto.text, dto.replyToId);
   }
 
   @Delete(':id/comments/:commentId')

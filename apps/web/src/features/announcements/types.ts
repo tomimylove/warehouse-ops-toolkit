@@ -24,6 +24,7 @@ export interface AnnouncementComment {
   createdAt: string;
   author: { id: string; name: string };
   reactions: Record<string, string[]>;
+  replyTo: { id: string; text: string; author: { id: string; name: string } } | null;
 }
 
 export interface AnnouncementVersion {
