@@ -230,12 +230,10 @@ export function AnnouncementsPage() {
           </DropdownMenu>
         )}
 
-        {unreadCount > 0 ? (
+        {unreadCount > 0 && (
           <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={handleMarkAllRead}>
             Mark all as read
           </Button>
-        ) : (
-          items.length > 0 && <span className="text-muted-foreground ml-auto text-xs">All caught up ✓</span>
         )}
       </div>
 

@@ -146,6 +146,7 @@ function Bubble({
   onEditRequest,
   onToggleReaction,
   onReply,
+  rootRef,
 }: {
   comment: AnnouncementComment;
   own: boolean;
@@ -154,6 +155,7 @@ function Bubble({
   onEditRequest: () => void;
   onToggleReaction: (emoji: string) => void;
   onReply: () => void;
+  rootRef?: (node: HTMLDivElement | null) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -165,7 +167,10 @@ function Bubble({
   const [reactionHover, setReactionHover] = useState(false);
 
   return (
-    <div className={cn('mb-6 flex flex-col', own ? 'items-end' : 'items-start')}>
+    // scroll-mb-24 means scrollIntoView (used to jump to a just-posted
+    // comment) leaves clearance for the floating composer below instead of
+    // landing the bubble right behind it.
+    <div ref={rootRef} className={cn('mb-6 flex scroll-mb-24 flex-col', own ? 'items-end' : 'items-start')}>
       <ChatBubble variant={own ? 'sent' : 'received'}>
         <ChatBubbleAvatar fallback={initials(comment.author.name)} />
         <div className="flex min-w-0 flex-col">
@@ -281,8 +286,12 @@ export function AnnouncementComments({
   const [editor, setEditor] = useState<Editor | null>(null);
   const [replyTo, setReplyTo] = useState<AnnouncementComment | null>(null);
   const [editingComment, setEditingComment] = useState<AnnouncementComment | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [newCommentId, setNewCommentId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Not component state — doesn't need its own re-render, just needs to
+  // survive across them so a bubble registered on an earlier render can
+  // still be found once `newCommentId` changes.
+  const bubbleNodes = useRef(new Map<string, HTMLDivElement>());
 
   useEffect(() => {
     let cancelled = false;
@@ -304,14 +313,15 @@ export function AnnouncementComments({
     };
   }, [announcementId]);
 
-  const hasText = !isEmptyHtml(draft);
+  // Scrolls to the just-posted comment specifically (not just "the bottom")
+  // once its bubble has actually rendered and registered itself below.
+  useEffect(() => {
+    if (!newCommentId) return;
+    bubbleNodes.current.get(newCommentId)?.scrollIntoView({ block: 'nearest' });
+    setNewCommentId(null);
+  }, [newCommentId, comments]);
 
-  function scrollToBottom() {
-    // Only called after the current user's own post/reply — opening an
-    // announcement (or switching to one) should land on the discussion
-    // header, not jump straight to the bottom of a long thread.
-    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: 'nearest' }));
-  }
+  const hasText = !isEmptyHtml(draft);
 
   function clearComposer() {
     setDraft('');
@@ -347,7 +357,7 @@ export function AnnouncementComments({
         const comment = await announcementsApi.createComment(announcementId, draft, replyTo?.id);
         setComments((prev) => [...prev, comment]);
         setReplyTo(null);
-        scrollToBottom();
+        setNewCommentId(comment.id);
       }
       clearComposer();
     } finally {
@@ -401,9 +411,12 @@ export function AnnouncementComments({
                   onEditRequest={() => startEdit(c)}
                   onToggleReaction={(emoji) => handleToggleReaction(c.id, emoji)}
                   onReply={() => startReply(c)}
+                  rootRef={(node) => {
+                    if (node) bubbleNodes.current.set(c.id, node);
+                    else bubbleNodes.current.delete(c.id);
+                  }}
                 />
               ))}
-              <div ref={bottomRef} />
             </div>
           )}
         </div>
