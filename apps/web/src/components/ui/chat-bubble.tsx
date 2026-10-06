@@ -59,7 +59,7 @@ const chatBubbleMessageVariants = cva('max-w-full px-3.5 py-2 text-sm break-word
 
 interface ChatBubbleMessageProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof chatBubbleMessageVariants> {
   html?: string;
-  // Rendered as a trailing, right-aligned line inside the bubble itself
+  // Rendered as a left-aligned line inside the bubble itself
   // (WhatsApp-style) — a timestamp sitting outside the bubble as a
   // separate element broke alignment with the avatar once anything else
   // (reactions) also lived in that outer flow.
@@ -73,7 +73,7 @@ const ChatBubbleMessage = React.forwardRef<HTMLDivElement, ChatBubbleMessageProp
       {meta && (
         <div
           className={cn(
-            'mt-0.5 flex justify-end text-[10px] leading-none',
+            'mt-0.5 flex justify-start text-[10px] leading-none',
             variant === 'sent' ? 'text-primary-foreground/70' : 'text-muted-foreground',
           )}
         >

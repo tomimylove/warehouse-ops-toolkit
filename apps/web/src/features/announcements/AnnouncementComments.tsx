@@ -61,19 +61,29 @@ function EmojiGrid({ onPick }: { onPick: (emoji: string) => void }) {
   );
 }
 
+type ResolvedReactions = Record<string, { id: string; name: string }[]>;
+
 // One combined badge for the whole message — every distinct emoji used
 // once each, plus a single total count (not a count per emoji, which
-// read as cluttered) — embedded at the bubble's bottom-right corner,
-// overlapping it only slightly. Hover for the per-emoji breakdown;
-// click reopens the picker to add/change your own reaction.
-function ReactionBar({ reactions, onToggle }: { reactions: Record<string, string[]>; onToggle: (emoji: string) => void }) {
+// read as cluttered) — embedded at the bubble's bottom-right corner.
+// Only ~20% of the badge's height overlaps into the bubble (-bottom-5);
+// the rest hangs below it, WhatsApp-style. Hover/click for who reacted
+// with what; click also reopens the picker to add/change your own reaction.
+function ReactionBar({
+  reactions,
+  onToggle,
+  onHoverChange,
+}: {
+  reactions: ResolvedReactions;
+  onToggle: (emoji: string) => void;
+  onHoverChange: (hovering: boolean) => void;
+}) {
   const [open, setOpen] = useState(false);
   const entries = Object.entries(reactions).filter(([, users]) => users.length > 0);
   if (entries.length === 0) return null;
 
   const shownEmoji = entries.slice(0, MAX_REACTIONS_SHOWN).map(([emoji]) => emoji);
   const total = entries.reduce((sum, [, users]) => sum + users.length, 0);
-  const breakdown = entries.map(([emoji, users]) => `${emoji} ${users.length}`).join('   ');
 
   return (
     <AnimatePresence>
@@ -82,7 +92,9 @@ function ReactionBar({ reactions, onToggle }: { reactions: Record<string, string
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0, opacity: 0 }}
         transition={{ type: 'spring', bounce: 0.5, duration: 0.4 }}
-        className="absolute -bottom-1.5 right-1"
+        className="absolute -bottom-5 right-1"
+        onMouseEnter={() => onHoverChange(true)}
+        onMouseLeave={() => onHoverChange(false)}
       >
         <Tooltip>
           <TooltipTrigger asChild>
@@ -108,7 +120,16 @@ function ReactionBar({ reactions, onToggle }: { reactions: Record<string, string
               </PopoverContent>
             </Popover>
           </TooltipTrigger>
-          <TooltipContent>{breakdown}</TooltipContent>
+          <TooltipContent>
+            <div className="space-y-1">
+              {entries.map(([emoji, users]) => (
+                <div key={emoji} className="flex items-center gap-1.5">
+                  <span>{emoji}</span>
+                  <span className="text-xs">{users.map((u) => u.name).join(', ')}</span>
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
         </Tooltip>
       </motion.div>
     </AnimatePresence>
@@ -135,6 +156,11 @@ function Bubble({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // CSS :hover can't be scoped to exclude a nested child's box — hovering
+  // the reaction badge is still hovering the bubble's `.group`, which would
+  // also pop up the reply/react/menu toolbar. Tracked separately and
+  // force-hidden with `!opacity-0` (important, so it beats group-hover).
+  const [reactionHover, setReactionHover] = useState(false);
 
   return (
     <div className={cn('mb-4 flex flex-col', own ? 'items-end' : 'items-start')}>
@@ -156,9 +182,11 @@ function Bubble({
               meta={formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
             />
 
-            <ReactionBar reactions={comment.reactions} onToggle={onToggleReaction} />
+            <ReactionBar reactions={comment.reactions} onToggle={onToggleReaction} onHoverChange={setReactionHover} />
 
-            <ChatBubbleActionWrapper className={cn((pickerOpen || menuOpen) && 'opacity-100')}>
+            <ChatBubbleActionWrapper
+              className={cn((pickerOpen || menuOpen) && 'opacity-100', reactionHover && '!opacity-0')}
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ChatBubbleAction icon={<Reply className="size-3.5" />} onClick={onReply} />

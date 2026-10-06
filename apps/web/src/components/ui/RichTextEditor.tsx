@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as React from 'react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -39,25 +40,25 @@ interface RichTextEditorProps {
   onSubmitKey?: () => void;
 }
 
-function ToolbarButton({
-  active,
-  disabled,
-  onClick,
-  title,
-  children,
-}: {
-  active?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
+// forwardRef + spreading ...rest is required here, not cosmetic — Radix's
+// `asChild` (used by the Link button's Popover trigger) clones this element
+// and merges its own ref/aria/data-state props onto it. Without forwarding
+// those through to the real <button>, Radix has no anchor element to
+// position the popover against, so the Popover silently fails to render
+// instead of just being mispositioned — that's what broke the Link button.
+const ToolbarButton = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    active?: boolean;
+    title: string;
+  }
+>(({ active, disabled, title, children, className, ...props }, ref) => {
   return (
     <button
+      ref={ref}
       type="button"
       title={title}
       disabled={disabled}
-      onClick={onClick}
       className={cn(
         'flex size-7 items-center justify-center rounded-sm',
         disabled
@@ -65,12 +66,15 @@ function ToolbarButton({
           : active
             ? 'bg-accent text-accent-foreground'
             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+        className,
       )}
+      {...props}
     >
       {children}
     </button>
   );
-}
+});
+ToolbarButton.displayName = 'ToolbarButton';
 
 function ToolbarSeparator() {
   return <div className="bg-border mx-0.5 w-px self-stretch" />;
@@ -82,11 +86,6 @@ function ToolbarSeparator() {
 export function RichTextToolbar({ editor, className }: { editor: Editor; className?: string }) {
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
-
-  function openLinkPopover() {
-    setLinkUrl(editor.getAttributes('link').href ?? '');
-    setLinkPopoverOpen(true);
-  }
 
   function applyLink() {
     if (linkUrl.trim()) {
@@ -177,9 +176,15 @@ export function RichTextToolbar({ editor, className }: { editor: Editor; classNa
         <Minus className="size-3.5" />
       </ToolbarButton>
       <ToolbarSeparator />
-      <Popover open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen}>
+      <Popover
+        open={linkPopoverOpen}
+        onOpenChange={(open) => {
+          setLinkPopoverOpen(open);
+          if (open) setLinkUrl(editor.getAttributes('link').href ?? '');
+        }}
+      >
         <PopoverTrigger asChild>
-          <ToolbarButton title="Link" active={editor.isActive('link')} onClick={openLinkPopover}>
+          <ToolbarButton title="Link" active={editor.isActive('link')}>
             <LinkIcon className="size-3.5" />
           </ToolbarButton>
         </PopoverTrigger>

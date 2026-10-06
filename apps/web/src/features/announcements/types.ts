@@ -23,7 +23,7 @@ export interface AnnouncementComment {
   text: string;
   createdAt: string;
   author: { id: string; name: string };
-  reactions: Record<string, string[]>;
+  reactions: Record<string, { id: string; name: string }[]>;
   replyTo: { id: string; text: string; author: { id: string; name: string } } | null;
 }
 
