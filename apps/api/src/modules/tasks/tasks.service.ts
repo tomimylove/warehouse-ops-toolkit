@@ -17,16 +17,21 @@ export class TasksService {
 
   // Board tasks (Board view — grouped by column). Notes (boardId null,
   // scoped to their author) go through listNotes() instead, not this.
-  listForBoard(boardId: string) {
-    return this.prisma.task.findMany({
+  async listForBoard(boardId: string) {
+    const tasks = await this.prisma.task.findMany({
       where: { boardId },
       orderBy: [{ order: 'asc' }],
       // Subtasks live with boardId: null (schema comment on Task.parentId),
-      // so this list can't eager-load them the way get() does — just the
-      // count, enough for the card's multi-task badge/expand chevron. The
-      // actual subtask rows are fetched lazily (GET /tasks/:id) on expand.
-      include: { ...include, _count: { select: { subtasks: true } } },
+      // so this list can't eager-load the full rows the way get() does —
+      // just enough (completed) to show the card's progress bar/chevron.
+      // The actual subtask rows are fetched lazily (GET /tasks/:id) on
+      // expand, so this stays a flat list, not N+1 queries.
+      include: { ...include, subtasks: { select: { completed: true } } },
     });
+    return tasks.map(({ subtasks, ...task }) => ({
+      ...task,
+      subtaskStats: subtasks.length > 0 ? { total: subtasks.length, done: subtasks.filter((s) => s.completed).length } : null,
+    }));
   }
 
   // Personal notes — top-level (no parent), no board, one author's own

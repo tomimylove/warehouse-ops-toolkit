@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { formatDistanceToNow } from 'date-fns';
-import { Calendar, Check, Flag, Repeat, Send, User } from 'lucide-react';
+import { Check, Send } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ChatBubble, ChatBubbleAvatar, ChatBubbleMessage } from '@/components/ui/chat-bubble';
 import { cn } from '@/lib/utils';
+import { usePermissions } from '../../app/PermissionsContext';
 import { tasksApi } from './api';
-import type { Task, TaskActivity, TaskComment, TaskPriority, TaskRecurrence } from './types';
+import type { Task, TaskActivity, TaskComment } from './types';
 
 interface TaskDrawerProps {
   taskId: string | null;
@@ -28,104 +28,20 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-const PRIORITIES: TaskPriority[] = ['NONE', 'LOW', 'MEDIUM', 'HIGH'];
-const RECURRENCES: TaskRecurrence[] = ['NONE', 'DAILY', 'WEEKLY', 'MONTHLY'];
-
-function toDateInputValue(iso: string | null) {
-  return iso ? iso.slice(0, 10) : '';
+function isEmptyHtml(html: string) {
+  return html.replace(/<[^>]+>/g, '').trim().length === 0;
 }
 
-// Quick-edit row above the tabs — priority/assignee/due date/recurrence,
-// each saved immediately on change rather than needing a separate save
-// step, since these are single-value pickers rather than free text.
-function QuickFields({
-  task,
-  users,
-  onUpdate,
-}: {
-  task: Task;
-  users: { id: string; name: string }[];
-  onUpdate: (data: Parameters<typeof tasksApi.updateTask>[1]) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs">
-            <Flag className="size-3" />
-            {task.priority === 'NONE' ? 'Priority' : task.priority}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {PRIORITIES.map((p) => (
-            <DropdownMenuItem key={p} onClick={() => onUpdate({ priority: p })}>
-              <Check className={cn('size-3.5', task.priority === p ? 'opacity-100' : 'opacity-0')} />
-              {p === 'NONE' ? 'No priority' : p}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs">
-            <User className="size-3" />
-            {task.assignee?.name ?? 'Assignee'}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => onUpdate({ assigneeId: null })}>
-            <Check className={cn('size-3.5', !task.assigneeId ? 'opacity-100' : 'opacity-0')} />
-            Unassigned
-          </DropdownMenuItem>
-          {users.map((u) => (
-            <DropdownMenuItem key={u.id} onClick={() => onUpdate({ assigneeId: u.id })}>
-              <Check className={cn('size-3.5', task.assigneeId === u.id ? 'opacity-100' : 'opacity-0')} />
-              {u.name}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <div className="relative">
-        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" asChild>
-          <label>
-            <Calendar className="size-3" />
-            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Due date'}
-            <input
-              type="date"
-              value={toDateInputValue(task.dueDate)}
-              onChange={(e) => onUpdate({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-              className="absolute inset-0 size-full cursor-pointer opacity-0"
-            />
-          </label>
-        </Button>
-      </div>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs">
-            <Repeat className="size-3" />
-            {task.recurrence === 'NONE' ? 'Repeat' : task.recurrence.toLowerCase()}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {RECURRENCES.map((r) => (
-            <DropdownMenuItem key={r} onClick={() => onUpdate({ recurrence: r })}>
-              <Check className={cn('size-3.5', task.recurrence === r ? 'opacity-100' : 'opacity-0')} />
-              {r === 'NONE' ? "Doesn't repeat" : r.charAt(0) + r.slice(1).toLowerCase()}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
+// Same bubble styling and composer shape as AnnouncementComments — no
+// reactions/replies/edit here though, TaskComment is deliberately flatter
+// (same reasoning the schema comment on that model gives).
 function ChatTab({ taskId }: { taskId: string }) {
+  const { user } = usePermissions();
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [draft, setDraft] = useState('');
+  const [editor, setEditor] = useState<Editor | null>(null);
   const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -135,47 +51,67 @@ function ChatTab({ taskId }: { taskId: string }) {
       .finally(() => setLoading(false));
   }, [taskId]);
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    if (!draft.trim()) return;
-    const comment = await tasksApi.createComment(taskId, draft.trim());
-    setComments((prev) => [...prev, comment]);
-    setDraft('');
+  async function send() {
+    if (isEmptyHtml(draft) || posting) return;
+    setPosting(true);
+    try {
+      const comment = await tasksApi.createComment(taskId, draft);
+      setComments((prev) => [...prev, comment]);
+      setDraft('');
+      editor?.commands.clearContent();
+    } finally {
+      setPosting(false);
+    }
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
-      {!loading && comments.length === 0 && <p className="text-muted-foreground text-sm">No messages yet.</p>}
-      <div className="flex flex-col gap-3">
-        {comments.map((c) => (
-          <div key={c.id} className="flex gap-2">
-            <Avatar size="sm" className="shrink-0">
-              <AvatarFallback className="text-[9px]">{initials(c.author.name)}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xs font-medium">{c.author.name}</span>
-                <span className="text-muted-foreground text-[10px]">
-                  {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
-                </span>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-2">
+        {loading && <p className="text-muted-foreground text-sm">Loading…</p>}
+        {!loading && comments.length === 0 && <p className="text-muted-foreground text-sm">No messages yet.</p>}
+        {comments.map((c) => {
+          const own = c.authorId === user?.id;
+          return (
+            <ChatBubble key={c.id} variant={own ? 'sent' : 'received'}>
+              <ChatBubbleAvatar fallback={initials(c.author.name)} />
+              <div className="flex min-w-0 flex-col">
+                {!own && <span className="text-muted-foreground mb-1 px-1 text-xs font-medium">{c.author.name}</span>}
+                <ChatBubbleMessage
+                  variant={own ? 'sent' : 'received'}
+                  html={c.text}
+                  meta={formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
+                />
               </div>
-              <p className="text-sm break-words">{c.text}</p>
-            </div>
-          </div>
-        ))}
+            </ChatBubble>
+          );
+        })}
       </div>
-      <form onSubmit={send} className="flex gap-2">
-        <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Write a message…" />
-        <Button type="submit" size="icon" className="shrink-0">
+
+      <div className="border-input focus-within:border-ring mt-2 flex shrink-0 items-end gap-1 rounded-2xl border px-1.5 py-1 transition-colors">
+        <RichTextEditor
+          value={draft}
+          onChange={setDraft}
+          onEditorReady={setEditor}
+          placeholder="Write a message…"
+          toolbar={false}
+          bordered={false}
+          minHeight="20px"
+          resizable={false}
+          className="min-w-0 flex-1"
+          contentClassName="px-2 py-1"
+        />
+        <Button type="button" size="icon" className="size-8 shrink-0 rounded-full" onClick={send} disabled={posting}>
           <Send className="size-4" />
         </Button>
-      </form>
+      </div>
     </div>
   );
 }
 
-function LogTab({ taskId }: { taskId: string }) {
+// Renamed from "Log" — same data (TaskActivityLog), presented as a
+// vertical timeline (dot + connecting line per entry) instead of a flat
+// list, reading top-to-bottom as the task's chronological progress.
+function TimelineTab({ taskId }: { taskId: string }) {
   const [activity, setActivity] = useState<TaskActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -190,33 +126,36 @@ function LogTab({ taskId }: { taskId: string }) {
   if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
   if (activity.length === 0) return <p className="text-muted-foreground text-sm">No activity yet.</p>;
 
+  const chronological = [...activity].reverse();
+
   return (
-    <ul className="flex flex-col gap-2.5">
-      {activity.map((a) => (
-        <li key={a.id} className="text-xs">
-          <span className="font-medium">{a.actor.name}</span> <span className="text-muted-foreground">{a.message.toLowerCase()}</span>
-          <span className="text-muted-foreground"> · {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}</span>
+    <ul className="relative flex flex-col gap-4 py-1 pl-5">
+      <div className="bg-border absolute top-1 bottom-1 left-[7px] w-px" />
+      {chronological.map((a) => (
+        <li key={a.id} className="relative">
+          <div className="bg-primary border-background absolute top-0.5 -left-5 size-2.5 rounded-full border-2" />
+          <div className="text-xs">
+            <span className="font-medium">{a.actor.name}</span> <span className="text-muted-foreground">{a.message.toLowerCase()}</span>
+          </div>
+          <div className="text-muted-foreground mt-0.5 text-[10px]">
+            {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}
+          </div>
         </li>
       ))}
     </ul>
   );
 }
 
-// The right-hand panel that opens on a task/note card — tabs for
-// Description (rich text), Subtasks (with completion toggle), Chat
-// (per-task comments), and Log (activity feed); quick-edit fields for
-// priority/assignee/due date/recurrence sit above the tabs.
+// The right-hand panel that opens on a task/note card. Priority/assignee/
+// due date/recurrence moved out of here onto the board itself (each
+// card's badges, and the board's filter toolbar you can drag values off
+// of) — editing them no longer needs opening the drawer at all.
 export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps) {
   const [task, setTask] = useState<Task | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
   const [descriptionEditor, setDescriptionEditor] = useState<Editor | null>(null);
-  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
-
-  useEffect(() => {
-    tasksApi.listUsers().then(setUsers);
-  }, []);
 
   useEffect(() => {
     if (!taskId) {
@@ -249,13 +188,6 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
   async function saveDescription() {
     if (!task || description === (task.description ?? '')) return;
     const updated = await tasksApi.updateTask(task.id, { description });
-    setTask(updated);
-    onChanged();
-  }
-
-  async function updateQuickField(data: Parameters<typeof tasksApi.updateTask>[1]) {
-    if (!task) return;
-    const updated = await tasksApi.updateTask(task.id, data);
     setTask(updated);
     onChanged();
   }
@@ -293,64 +225,60 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
         </SheetHeader>
 
         {task && (
-          <>
-            <QuickFields task={task} users={users} onUpdate={updateQuickField} />
+          <Tabs defaultValue="chat" className="flex-1 overflow-y-auto px-4">
+            <TabsList>
+              <TabsTrigger value="chat">Chat</TabsTrigger>
+              <TabsTrigger value="description">Description</TabsTrigger>
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="subtasks">Subtasks{task.subtasks?.length ? ` (${task.subtasks.length})` : ''}</TabsTrigger>
+            </TabsList>
 
-            <Tabs defaultValue="description" className="flex-1 overflow-y-auto px-4">
-              <TabsList>
-                <TabsTrigger value="description">Description</TabsTrigger>
-                <TabsTrigger value="subtasks">Subtasks{task.subtasks?.length ? ` (${task.subtasks.length})` : ''}</TabsTrigger>
-                <TabsTrigger value="chat">Chat</TabsTrigger>
-                <TabsTrigger value="log">Log</TabsTrigger>
-              </TabsList>
+            <TabsContent value="chat" className="mt-3 h-full">
+              <ChatTab taskId={task.id} />
+            </TabsContent>
 
-              <TabsContent value="description" className="mt-3">
-                <RichTextEditor
-                  value={description}
-                  onChange={setDescription}
-                  onBlur={saveDescription}
-                  onEditorReady={setDescriptionEditor}
-                  placeholder="Add a description…"
-                  minHeight="128px"
-                />
-              </TabsContent>
+            <TabsContent value="description" className="mt-3">
+              <RichTextEditor
+                value={description}
+                onChange={setDescription}
+                onBlur={saveDescription}
+                onEditorReady={setDescriptionEditor}
+                placeholder="Add a description…"
+                minHeight="128px"
+              />
+            </TabsContent>
 
-              <TabsContent value="subtasks" className="mt-3 flex flex-col gap-3">
-                <ul className="flex flex-col gap-2">
-                  {task.subtasks?.map((sub) => (
-                    <li key={sub.id} className="bg-card flex items-center gap-2 rounded-md border p-2 text-sm">
-                      <button
-                        type="button"
-                        onClick={() => toggleSubtask(sub.id, !sub.completed)}
-                        className={cn(
-                          'flex size-4 shrink-0 items-center justify-center rounded-full border',
-                          sub.completed ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40',
-                        )}
-                      >
-                        {sub.completed && <Check className="size-3" />}
-                      </button>
-                      <span className={cn('flex-1', sub.completed && 'text-muted-foreground line-through')}>{sub.title}</span>
-                    </li>
-                  ))}
-                  {!task.subtasks?.length && <p className="text-muted-foreground text-sm">No subtasks yet.</p>}
-                </ul>
-                <form onSubmit={addSubtask} className="flex gap-2">
-                  <Input value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} placeholder="New subtask…" />
-                  <Button type="submit" size="sm">
-                    Add
-                  </Button>
-                </form>
-              </TabsContent>
+            <TabsContent value="timeline" className="mt-3">
+              <TimelineTab taskId={task.id} />
+            </TabsContent>
 
-              <TabsContent value="chat" className="mt-3">
-                <ChatTab taskId={task.id} />
-              </TabsContent>
-
-              <TabsContent value="log" className="mt-3">
-                <LogTab taskId={task.id} />
-              </TabsContent>
-            </Tabs>
-          </>
+            <TabsContent value="subtasks" className="mt-3 flex flex-col gap-3">
+              <ul className="flex flex-col gap-2">
+                {task.subtasks?.map((sub) => (
+                  <li key={sub.id} className="bg-card flex items-center gap-2 rounded-md border p-2 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => toggleSubtask(sub.id, !sub.completed)}
+                      className={cn(
+                        'flex size-4 shrink-0 items-center justify-center rounded-full border',
+                        sub.completed ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40',
+                      )}
+                    >
+                      {sub.completed && <Check className="size-3" />}
+                    </button>
+                    <span className={cn('flex-1', sub.completed && 'text-muted-foreground line-through')}>{sub.title}</span>
+                  </li>
+                ))}
+                {!task.subtasks?.length && <p className="text-muted-foreground text-sm">No subtasks yet.</p>}
+              </ul>
+              <form onSubmit={addSubtask} className="flex gap-2">
+                <Input value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} placeholder="New subtask…" />
+                <Button type="submit" size="sm">
+                  Add
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         )}
       </SheetContent>
     </Sheet>

@@ -14,6 +14,8 @@ export const tasksApi = {
     request<Board>(`/projects/${projectId}/boards`, { method: 'POST', body: JSON.stringify({ name }) }),
   createColumn: (boardId: string, name: string) =>
     request<Column>(`/boards/${boardId}/columns`, { method: 'POST', body: JSON.stringify({ name }) }),
+  updateColumn: (id: string, data: Partial<Pick<Column, 'name' | 'color'>>) =>
+    request<Column>(`/columns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   listBoardTasks: (boardId: string) => request<Task[]>(`/tasks?boardId=${boardId}`),
   listMyNotes: () => request<Task[]>('/tasks/mine'),

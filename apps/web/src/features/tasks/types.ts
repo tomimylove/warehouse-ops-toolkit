@@ -19,10 +19,11 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   subtasks?: Task[];
-  // Board-list rows carry a count instead of the full relation (subtasks
-  // live with boardId: null, so a board query can't eager-load them the
-  // way GET /tasks/:id does) — enough for the card's expand chevron.
-  _count?: { subtasks: number };
+  // Board-list rows carry this instead of the full `subtasks` relation
+  // (subtasks live with boardId: null, so a board query can't eager-load
+  // them the way GET /tasks/:id does) — enough for the card's progress
+  // bar/chevron without an N+1 fetch per card.
+  subtaskStats?: { total: number; done: number } | null;
 }
 
 export interface TaskComment {
@@ -48,6 +49,7 @@ export interface Column {
   boardId: string;
   name: string;
   order: number;
+  color: string | null;
 }
 
 export interface Board {

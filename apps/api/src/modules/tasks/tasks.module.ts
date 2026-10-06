@@ -4,13 +4,13 @@ import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 import { BoardsController } from './boards.controller';
 import { BoardsService } from './boards.service';
-import { ColumnsController } from './columns.controller';
+import { ColumnController, ColumnsController } from './columns.controller';
 import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
 
 @Module({
   imports: [AuthModule],
-  controllers: [ProjectsController, BoardsController, ColumnsController, TasksController],
+  controllers: [ProjectsController, BoardsController, ColumnsController, ColumnController, TasksController],
   providers: [ProjectsService, BoardsService, TasksService],
 })
 export class TasksModule {}

@@ -227,11 +227,15 @@ model Board {
 }
 
 model Column {
-  id      String @id @default(cuid())
+  id      String  @id @default(cuid())
   boardId String
-  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board   Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
   name    String
-  order   Int    @default(0)
+  order   Int     @default(0)
+  // Hex string (e.g. "#f59e0b"); null means uncolored. The header bar
+  // renders solid, the column body tints it at low opacity — both
+  // computed from this one value in the frontend, not stored separately.
+  color   String?
   tasks   Task[]
 
   @@map("Columns")

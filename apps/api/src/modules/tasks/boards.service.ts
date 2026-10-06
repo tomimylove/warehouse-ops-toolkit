@@ -58,4 +58,10 @@ export class BoardsService {
     const siblingCount = await this.prisma.column.count({ where: { boardId } });
     return this.prisma.column.create({ data: { boardId, name, order: siblingCount } });
   }
+
+  async updateColumn(id: string, data: { name?: string; color?: string | null }) {
+    const column = await this.prisma.column.findUnique({ where: { id } });
+    if (!column) throw new NotFoundException(`Column ${id} not found`);
+    return this.prisma.column.update({ where: { id }, data });
+  }
 }
