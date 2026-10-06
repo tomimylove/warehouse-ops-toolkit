@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Pin, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button, Input, RichTextEditor } from '../../components/ui';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -25,6 +26,13 @@ interface Draft {
 }
 
 const EMPTY_DRAFT: Draft = { title: '', body: '', pinned: false, teamIds: [], coverId: null };
+
+// Tiptap's "empty" output is still `<p></p>`, not an empty string, so a
+// plain .trim() check on the HTML never actually caught a body with no
+// real text — this is what let a title-only announcement through.
+function isEmptyHtml(html: string) {
+  return html.replace(/<[^>]+>/g, '').trim().length === 0;
+}
 
 function draftKey(announcementId: string | null) {
   return `announcement-draft:${announcementId ?? 'new'}`;
@@ -122,7 +130,14 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft.title.trim() || !draft.body.trim()) return;
+    if (!draft.title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    if (isEmptyHtml(draft.body)) {
+      toast.error('Write something in the body before publishing');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -139,6 +154,8 @@ export function AnnouncementComposer({ open, onOpenChange, editing, onSaved }: A
       clearDraft();
       onOpenChange(false);
       onSaved(saved);
+    } catch {
+      toast.error('Could not save the announcement. Try again.');
     } finally {
       setSaving(false);
     }

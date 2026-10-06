@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { CurrentUser } from '../auth/current-user.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
@@ -12,6 +12,14 @@ const include = {
   teams: { include: { team: true } },
   author: { select: { id: true, name: true } },
 } as const;
+
+// Tiptap's "empty" output is `<p></p>`, not an empty string — DTO-level
+// @IsNotEmpty() lets that through, so this is the actual guard against a
+// body with no real text (the client validates the same thing, but the
+// API shouldn't trust that).
+function isEmptyHtml(html: string) {
+  return html.replace(/<[^>]+>/g, '').trim().length === 0;
+}
 
 function toDto(row: Awaited<ReturnType<AnnouncementsService['findRaw']>>, isRead: boolean) {
   const { teams, ...rest } = row;
@@ -58,6 +66,7 @@ export class AnnouncementsService {
   }
 
   async create(dto: CreateAnnouncementDto, authorId: string) {
+    if (isEmptyHtml(dto.body)) throw new BadRequestException('Announcement body cannot be empty');
     const { teamIds, ...data } = dto;
     const row = await this.prisma.announcement.create({
       data: {
@@ -72,6 +81,7 @@ export class AnnouncementsService {
   }
 
   async update(id: string, dto: UpdateAnnouncementDto, userId: string) {
+    if (dto.body !== undefined && isEmptyHtml(dto.body)) throw new BadRequestException('Announcement body cannot be empty');
     const before = await this.findRaw(id);
     const { teamIds, ...data } = dto;
     const changes = changeSummary(before, dto);

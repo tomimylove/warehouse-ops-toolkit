@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { History, MoreHorizontal, PartyPopper, Pencil, Pin, PinOff, Plus, Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, History, MoreHorizontal, PartyPopper, Pencil, Pin, PinOff, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { announcementsApi } from './api';
 import { coverFor } from './covers';
@@ -98,6 +98,22 @@ export function AnnouncementsPage() {
   }, [items, teamFilter, query]);
   const unreadCount = items.filter((a) => !a.isRead).length;
   const selected = items.find((a) => a.id === selectedId) ?? null;
+
+  // The list's native scrollbar is hidden in favor of a bottom indicator —
+  // this tracks whether there's actually more to scroll to, so it isn't
+  // showing once the list is already fully in view or scrolled to the end.
+  const listRef = useRef<HTMLUListElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  function updateCanScrollDown() {
+    const el = listRef.current;
+    if (!el) return;
+    setCanScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  }
+
+  useEffect(() => {
+    updateCanScrollDown();
+  }, [filtered]);
 
   async function select(item: Announcement) {
     setSelectedId(item.id);
@@ -280,8 +296,9 @@ export function AnnouncementsPage() {
                 </button>
               )}
             </div>
-            <ul className="flex flex-col gap-1 overflow-y-auto">
-              {filtered.map((item) => {
+            <div className="relative min-h-0 flex-1">
+              <ul ref={listRef} onScroll={updateCanScrollDown} className="no-scrollbar flex h-full flex-col gap-1 overflow-y-auto">
+                {filtered.map((item) => {
               const cover = coverFor(item.id, item.coverId);
               return (
                 <li key={item.id}>
@@ -295,7 +312,7 @@ export function AnnouncementsPage() {
                     <div className="size-10 shrink-0 rounded-md" style={{ background: cover.gradient }} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start gap-1.5">
-                        {!item.isRead && <span className="bg-primary mt-1.5 size-1.5 shrink-0 rounded-full" />}
+                        {!item.isRead && <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-green-500" />}
                         {item.pinned && <Pin className="text-muted-foreground mt-0.5 size-3 shrink-0" />}
                         <span className={`truncate text-sm ${item.isRead ? 'font-normal' : 'font-medium'}`}>
                           {item.title}
@@ -311,8 +328,23 @@ export function AnnouncementsPage() {
                   </button>
                 </li>
               );
-              })}
-            </ul>
+                })}
+              </ul>
+
+              {/* The list's own scrollbar is hidden (no-scrollbar) in favor
+                  of this indicator — only shown while there's more to see
+                  below, and gone once you've scrolled to the end. */}
+              {canScrollDown && (
+                <button
+                  type="button"
+                  aria-label="Scroll down"
+                  onClick={() => listRef.current?.scrollBy({ top: listRef.current.clientHeight * 0.8, behavior: 'smooth' })}
+                  className="text-muted-foreground from-background pointer-events-auto absolute inset-x-0 bottom-0 flex h-8 animate-pulse items-end justify-center bg-gradient-to-t to-transparent pb-1"
+                >
+                  <ChevronDown className="size-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="min-h-0">
