@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { KanbanSquare, Plus } from 'lucide-react';
+import { CalendarDays, GanttChartSquare, KanbanSquare, List, Plus } from 'lucide-react';
 import { PageHeader, EmptyState, Button, Input } from '../../components/ui';
 import { cn } from '@/lib/utils';
 import {
@@ -17,8 +17,44 @@ import {
 } from '@/components/ui/breadcrumb';
 import { tasksApi } from './api';
 import { BoardView } from './BoardView';
+import { ListView } from './ListView';
+import { GanttView } from './GanttView';
+import { CalendarView } from './CalendarView';
 import { TaskDrawer } from './TaskDrawer';
 import type { Board, Project } from './types';
+
+type ViewMode = 'board' | 'list' | 'gantt' | 'calendar';
+
+const VIEW_OPTIONS: { value: ViewMode; label: string; icon: typeof KanbanSquare }[] = [
+  { value: 'board', label: 'Board', icon: KanbanSquare },
+  { value: 'list', label: 'List', icon: List },
+  { value: 'gantt', label: 'Gantt', icon: GanttChartSquare },
+  { value: 'calendar', label: 'Calendar', icon: CalendarDays },
+];
+
+// Board/Gantt/Calendar are all scoped to the single active board; List
+// spans every board in the project instead, so this switcher lives here
+// (TasksPage) rather than inside BoardView.
+function ViewSwitcher({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
+  return (
+    <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
+      {VIEW_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+            value === opt.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <opt.icon className="size-3.5" />
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // The project gallery's mini-dashboard card — boards/task counts and a
 // completion bar from the list endpoint's aggregates (projects.service.ts),
@@ -133,6 +169,7 @@ export function TasksPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>('board');
   const [newProjectName, setNewProjectName] = useState('');
   const [newBoardName, setNewBoardName] = useState('');
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
@@ -258,39 +295,51 @@ export function TasksPage() {
 
       {activeProject && (
         <>
-          <div className="mb-4 flex items-center gap-2">
-            <DndContext sensors={boardSensors} collisionDetection={closestCenter} onDragEnd={handleBoardDragEnd}>
-              <SortableContext items={activeProject.boards.map((b) => b.id)} strategy={horizontalListSortingStrategy}>
-                <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
-                  {activeProject.boards.map((b) => (
-                    <BoardTab key={b.id} board={b} active={b.id === activeBoardId} onSelect={() => setActiveBoardId(b.id)} onRename={(name) => renameBoard(b.id, name)} />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-            <form onSubmit={createBoard} className="flex items-center gap-1">
-              <Input
-                value={newBoardName}
-                onChange={(e) => setNewBoardName(e.target.value)}
-                placeholder="New board…"
-                className="h-8 w-32 text-sm"
-              />
-              <Button type="submit" size="icon" variant="ghost" className="size-8">
-                <Plus className="size-4" />
-              </Button>
-            </form>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <ViewSwitcher value={view} onChange={setView} />
+
+            {/* Board tabs only make sense for the three single-board
+                views — List already spans every board at once. */}
+            {view !== 'list' && (
+              <div className="flex items-center gap-2">
+                <DndContext sensors={boardSensors} collisionDetection={closestCenter} onDragEnd={handleBoardDragEnd}>
+                  <SortableContext items={activeProject.boards.map((b) => b.id)} strategy={horizontalListSortingStrategy}>
+                    <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
+                      {activeProject.boards.map((b) => (
+                        <BoardTab key={b.id} board={b} active={b.id === activeBoardId} onSelect={() => setActiveBoardId(b.id)} onRename={(name) => renameBoard(b.id, name)} />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <form onSubmit={createBoard} className="flex items-center gap-1">
+                  <Input
+                    value={newBoardName}
+                    onChange={(e) => setNewBoardName(e.target.value)}
+                    placeholder="New board…"
+                    className="h-8 w-32 text-sm"
+                  />
+                  <Button type="submit" size="icon" variant="ghost" className="size-8">
+                    <Plus className="size-4" />
+                  </Button>
+                </form>
+              </div>
+            )}
           </div>
 
-          {activeBoard ? (
-            <BoardView
-              key={`${activeBoard.id}-${refreshKey}`}
-              board={activeBoard}
-              onOpenTask={setOpenTaskId}
-              onColumnsChanged={load}
-            />
-          ) : (
-            <EmptyState message="No boards yet — add one above." />
-          )}
+          {view === 'list' && <ListView project={activeProject} onOpenTask={setOpenTaskId} />}
+
+          {view !== 'list' &&
+            (activeBoard ? (
+              <>
+                {view === 'board' && (
+                  <BoardView key={`${activeBoard.id}-${refreshKey}`} board={activeBoard} onOpenTask={setOpenTaskId} onColumnsChanged={load} />
+                )}
+                {view === 'gantt' && <GanttView key={activeBoard.id} board={activeBoard} onOpenTask={setOpenTaskId} />}
+                {view === 'calendar' && <CalendarView key={activeBoard.id} board={activeBoard} onOpenTask={setOpenTaskId} />}
+              </>
+            ) : (
+              <EmptyState message="No boards yet — add one above." />
+            ))}
         </>
       )}
 

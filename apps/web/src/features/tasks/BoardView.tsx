@@ -18,7 +18,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -858,29 +857,10 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
-            <span className="bg-background text-foreground inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium shadow-sm">
-              Board
-            </span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-muted-foreground/50 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
-                  Gantt
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Coming soon</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-muted-foreground/50 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
-                  Calendar
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Coming soon</TooltipContent>
-            </Tooltip>
-          </div>
-
+        {/* The Board/List/Gantt/Calendar switcher itself lives in
+            TasksPage now — List spans every board in the project, so it
+            can't be this single-board component's call to render it. */}
+        <div className="flex justify-end">
           <FilterToolbar filters={filters} setFilters={setFilters} users={users} />
         </div>
 
