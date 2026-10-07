@@ -15,6 +15,7 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable,
 import { CSS } from '@dnd-kit/utilities';
 import { Calendar, Check, ChevronDown, Flag, Plus, Repeat, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Calendar as DatePicker } from '@/components/ui/calendar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -562,16 +563,15 @@ function DueDatePicker({
           {task.dueDate && new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-2" align="start" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="date"
-          defaultValue={task.dueDate?.slice(0, 10) ?? ''}
-          onChange={(e) => {
-            if (!e.target.value) return;
-            onUpdate({ dueDate: new Date(e.target.value).toISOString() });
+      <PopoverContent className="w-auto p-0" align="start" onClick={(e) => e.stopPropagation()}>
+        <DatePicker
+          mode="single"
+          selected={task.dueDate ? new Date(task.dueDate) : undefined}
+          onSelect={(date) => {
+            if (!date) return;
+            onUpdate({ dueDate: date.toISOString() });
             onOpenChange(false);
           }}
-          className="bg-background text-sm outline-none"
         />
       </PopoverContent>
     </Popover>
