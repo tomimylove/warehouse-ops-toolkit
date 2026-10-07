@@ -1023,32 +1023,12 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
-          <span className="bg-background text-foreground inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium shadow-sm">
-            Board
-          </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-muted-foreground/50 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
-                Gantt
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Coming soon</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-muted-foreground/50 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
-                Calendar
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Coming soon</TooltipContent>
-          </Tooltip>
-        </div>
-
-        <FilterToolbar filters={filters} setFilters={setFilters} users={users} />
-      </div>
-
+      {/* FilterToolbar's chips are useDraggable sources that must drop
+          onto cards further down — both have to live inside the SAME
+          DndContext, or the chips simply don't register as draggable at
+          all (this was the actual bug behind "drag-to-assign does
+          nothing": the toolbar used to sit in a sibling div outside this
+          provider entirely). */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -1056,6 +1036,32 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
+            <span className="bg-background text-foreground inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium shadow-sm">
+              Board
+            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-muted-foreground/50 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
+                  Gantt
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Coming soon</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-muted-foreground/50 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
+                  Calendar
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Coming soon</TooltipContent>
+            </Tooltip>
+          </div>
+
+          <FilterToolbar filters={filters} setFilters={setFilters} users={users} />
+        </div>
+
         <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {orderedColumns.map((column) => {
