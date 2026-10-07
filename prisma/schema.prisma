@@ -162,7 +162,7 @@ model User {
   announcementVersions  AnnouncementVersion[]
   announcementsAuthored Announcement[]
   announcementComments  AnnouncementComment[]
-  tasksAssigned         Task[]                @relation("TaskAssignee")
+  tasksAssigned         Task[]                @relation("TaskAssignees")
   taskComments          TaskComment[]
   taskActivity          TaskActivityLog[]
 
@@ -286,8 +286,9 @@ model Task {
   // completion flag; reused for personal Notes' checkbox too rather than
   // adding a second field just for those.
   completed   Boolean           @default(false)
-  assigneeId  String?
-  assignee    User?             @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  // Many-to-many — a task can have several assignees now (implicit join
+  // table, Prisma-managed); replaced the old single assigneeId FK.
+  assignees   User[]            @relation("TaskAssignees")
   comments    TaskComment[]
   activity    TaskActivityLog[]
   createdAt   DateTime          @default(now())

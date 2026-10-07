@@ -6,8 +6,10 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { CreateTaskCommentDto } from './dto/create-task-comment.dto';
 
 const include = {
-  assignee: { select: { id: true, name: true } },
+  assignees: { select: { id: true, name: true } },
 } as const;
+
+type TaskWithAssignees = Task & { assignees: { id: string; name: string }[] };
 
 const RECUR_DAYS: Record<TaskRecurrence, number> = { NONE: 0, DAILY: 1, WEEKLY: 7, MONTHLY: 30 };
 
@@ -87,7 +89,7 @@ export class TasksService {
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
         priority: dto.priority,
         recurrence: dto.recurrence,
-        assigneeId: dto.assigneeId,
+        assignees: dto.assigneeIds?.length ? { connect: dto.assigneeIds.map((id) => ({ id })) } : undefined,
         order: siblingCount,
         authorId,
       },
@@ -105,12 +107,14 @@ export class TasksService {
 
   async update(id: string, dto: UpdateTaskDto, actorId: string) {
     const before = await this.get(id);
+    const { assigneeIds, dueDate, ...rest } = dto;
 
     const task = await this.prisma.task.update({
       where: { id },
       data: {
-        ...dto,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        ...rest,
+        dueDate: dueDate ? new Date(dueDate) : undefined,
+        assignees: assigneeIds !== undefined ? { set: assigneeIds.map((uid) => ({ id: uid })) } : undefined,
       },
       include,
     });
@@ -265,7 +269,7 @@ export class TasksService {
   // stored as structured diffs — same call AnnouncementsService's
   // changeSummary makes, and this list is small enough that a diffing
   // layer would be more code than it saves.
-  private async logChanges(taskId: string, actorId: string, before: Task, dto: UpdateTaskDto) {
+  private async logChanges(taskId: string, actorId: string, before: TaskWithAssignees, dto: UpdateTaskDto) {
     const messages: string[] = [];
     if (dto.columnId !== undefined && dto.columnId !== before.columnId) {
       const column = await this.prisma.column.findUnique({ where: { id: dto.columnId } });
@@ -274,12 +278,16 @@ export class TasksService {
     if (dto.priority !== undefined && dto.priority !== before.priority) {
       messages.push(`Priority set to ${dto.priority}`);
     }
-    if (dto.assigneeId !== undefined && dto.assigneeId !== before.assigneeId) {
-      if (dto.assigneeId === null) {
-        messages.push('Unassigned');
-      } else {
-        const assignee = await this.prisma.user.findUnique({ where: { id: dto.assigneeId } });
-        messages.push(`Assigned to ${assignee?.name ?? 'someone'}`);
+    if (dto.assigneeIds !== undefined) {
+      const beforeIds = before.assignees.map((a) => a.id).sort();
+      const afterIds = [...dto.assigneeIds].sort();
+      if (beforeIds.join(',') !== afterIds.join(',')) {
+        if (afterIds.length === 0) {
+          messages.push('Unassigned');
+        } else {
+          const assignees = await this.prisma.user.findMany({ where: { id: { in: dto.assigneeIds } } });
+          messages.push(`Assigned to ${assignees.map((a) => a.name).join(', ') || 'someone'}`);
+        }
       }
     }
     if (dto.dueDate !== undefined) messages.push('Due date changed');
@@ -289,7 +297,7 @@ export class TasksService {
     for (const message of messages) await this.log(taskId, actorId, message);
   }
 
-  private async recur(task: Task) {
+  private async recur(task: TaskWithAssignees) {
     if (!task.boardId) return;
     const firstColumn = await this.prisma.column.findFirst({ where: { boardId: task.boardId }, orderBy: { order: 'asc' } });
     const base = task.dueDate ?? new Date();
@@ -308,7 +316,7 @@ export class TasksService {
         authorId: task.authorId,
         priority: task.priority,
         recurrence: task.recurrence,
-        assigneeId: task.assigneeId,
+        assignees: task.assignees.length ? { connect: task.assignees.map((a) => ({ id: a.id })) } : undefined,
         dueDate: nextDue,
       },
     });

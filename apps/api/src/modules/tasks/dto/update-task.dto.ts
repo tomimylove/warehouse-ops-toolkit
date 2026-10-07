@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { TaskPriority, TaskRecurrence } from '@prisma/client';
 
 export class UpdateTaskDto {
@@ -31,13 +31,13 @@ export class UpdateTaskDto {
   @IsEnum(TaskRecurrence)
   recurrence?: TaskRecurrence;
 
-  // Explicit null clears the assignee — class-validator's @IsOptional lets
-  // undefined through untouched but would also wave null past @IsString,
-  // so it's allowed here deliberately (the service passes it straight to
-  // Prisma, which treats null as "unset the relation").
+  // Replaces the full assignee set (not a merge) — an empty array clears
+  // all assignees, same as the old `assigneeId: null` did for the single
+  // FK.
   @IsOptional()
-  @IsString()
-  assigneeId?: string | null;
+  @IsArray()
+  @IsString({ each: true })
+  assigneeIds?: string[];
 
   @IsOptional()
   @IsBoolean()

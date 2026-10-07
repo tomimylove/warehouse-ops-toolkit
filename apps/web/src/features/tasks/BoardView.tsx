@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, Check, ChevronDown, Flag, Plus, Repeat, User } from 'lucide-react';
+import { Calendar, Check, ChevronDown, Flag, MoreHorizontal, Plus, Repeat, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar as DatePicker } from '@/components/ui/calendar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { tasksApi } from './api';
 import type { Board, Task, TaskPriority, TaskRecurrence } from './types';
@@ -300,11 +301,24 @@ function SubtaskRow({ subtask, onToggle, onOpen }: { subtask: Task; onToggle: ()
 }
 
 // Inline "+ subtask" affordance inside the expanded subtask list — same
-// debounce guard as AddTaskRow.
-function AddSubtaskRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
-  const [adding, setAdding] = useState(false);
+// debounce guard as AddTaskRow. Open state is controlled from TaskCard so
+// the card's "…" menu can trigger it directly, not just the link here.
+function AddSubtaskRow({
+  onAdd,
+  open,
+  onOpenChange,
+}: {
+  onAdd: (title: string) => Promise<void>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [title, setTitle] = useState('');
   const [posting, setPosting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -314,17 +328,17 @@ function AddSubtaskRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
     try {
       await onAdd(trimmed);
       setTitle('');
-      setAdding(false);
+      onOpenChange(false);
     } finally {
       setPosting(false);
     }
   }
 
-  if (!adding) {
+  if (!open) {
     return (
       <button
         type="button"
-        onClick={() => setAdding(true)}
+        onClick={() => onOpenChange(true)}
         className="text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 text-left text-xs"
       >
         <Plus className="size-3" />
@@ -336,12 +350,13 @@ function AddSubtaskRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
   return (
     <form onSubmit={submit} className="flex gap-1 px-0.5">
       <input
+        ref={inputRef}
         autoFocus
         value={title}
         disabled={posting}
         onChange={(e) => setTitle(e.target.value)}
-        onBlur={() => !title.trim() && !posting && setAdding(false)}
-        onKeyDown={(e) => e.key === 'Escape' && setAdding(false)}
+        onBlur={() => !title.trim() && !posting && onOpenChange(false)}
+        onKeyDown={(e) => e.key === 'Escape' && onOpenChange(false)}
         placeholder="Subtask title…"
         className="bg-background min-w-0 flex-1 rounded-md border px-2 py-1 text-xs outline-none disabled:opacity-60"
       />
@@ -378,6 +393,8 @@ function TaskCard({
   // Only one badge popover open at a time, on this card — opening another
   // closes whichever was already open instead of stacking.
   const [openPicker, setOpenPicker] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [addingSubtask, setAddingSubtask] = useState(false);
 
   if (isDragging) {
     return (
@@ -407,6 +424,24 @@ function TaskCard({
                 {task.completed && <Check className="size-2.5" />}
               </button>
               <span className={cn('min-w-0 flex-1', task.completed && 'text-muted-foreground line-through')}>{task.title}</span>
+              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenuTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <button type="button" className="text-muted-foreground/40 hover:text-muted-foreground shrink-0">
+                    <MoreHorizontal className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!expanded) onToggleExpand();
+                      setAddingSubtask(true);
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    Add subtask
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 pl-5" onClick={(e) => e.stopPropagation()}>
@@ -478,7 +513,7 @@ function TaskCard({
             ))}
           <div className="relative pl-3">
             <span className="border-border absolute top-0 left-0 h-1/2 w-2.5 rounded-bl-md border-b border-l" aria-hidden />
-            <AddSubtaskRow onAdd={onAddSubtask} />
+            <AddSubtaskRow onAdd={onAddSubtask} open={addingSubtask} onOpenChange={setAddingSubtask} />
           </div>
         </div>
       )}
@@ -592,7 +627,7 @@ function RecurrencePicker({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <button type="button" className={task.recurrence === 'NONE' ? 'text-muted-foreground/40 hover:text-muted-foreground' : 'text-muted-foreground'}>
+        <button type="button" className={task.recurrence === 'NONE' ? 'text-muted-foreground/40 hover:text-muted-foreground' : 'text-blue-500'}>
           <Repeat className="size-3.5" />
         </button>
       </PopoverTrigger>
@@ -617,6 +652,12 @@ function RecurrencePicker({
   );
 }
 
+// Multi-select — a task can have several assignees now, so this is a
+// checklist (toggling one doesn't close the popover) rather than a
+// pick-one-and-close list. The trigger stacks up to 3 avatars with a
+// "+N" overflow badge instead of showing just one.
+const MAX_ASSIGNEE_AVATARS = 3;
+
 function AssigneePicker({
   task,
   users,
@@ -627,59 +668,68 @@ function AssigneePicker({
 }: {
   task: Task;
   users: { id: string; name: string }[];
-  onUpdate: (data: { assigneeId: string | null }) => void;
+  onUpdate: (data: { assigneeIds: string[] }) => void;
   className?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  function toggle(userId: string) {
+    const ids = task.assignees.map((a) => a.id);
+    onUpdate({ assigneeIds: ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId] });
+  }
+
+  const shown = task.assignees.slice(0, MAX_ASSIGNEE_AVATARS);
+  const overflow = task.assignees.length - shown.length;
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <button type="button" className={className}>
-          {task.assignee ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Avatar size="sm">
-                  <AvatarFallback className="text-[9px]">{initials(task.assignee.name)}</AvatarFallback>
-                </Avatar>
-              </TooltipTrigger>
-              <TooltipContent>{task.assignee.name}</TooltipContent>
-            </Tooltip>
-          ) : (
+        <button type="button" className={cn('flex items-center', className)}>
+          {task.assignees.length === 0 ? (
             <User className="text-muted-foreground/40 hover:text-muted-foreground size-4" />
+          ) : (
+            <div className="flex -space-x-1.5">
+              {shown.map((a) => (
+                <Tooltip key={a.id}>
+                  <TooltipTrigger asChild>
+                    <Avatar size="sm" className="ring-background ring-2">
+                      <AvatarFallback className="text-[9px]">{initials(a.name)}</AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent>{a.name}</TooltipContent>
+                </Tooltip>
+              ))}
+              {overflow > 0 && (
+                <Avatar size="sm" className="ring-background ring-2">
+                  <AvatarFallback className="text-[9px]">+{overflow}</AvatarFallback>
+                </Avatar>
+              )}
+            </div>
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-44 p-1" align="end" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={() => {
-            onUpdate({ assigneeId: null });
-            onOpenChange(false);
-          }}
-          className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
-        >
-          <Check className={cn('size-3 shrink-0', !task.assigneeId ? 'opacity-100' : 'opacity-0')} />
-          <User className="text-muted-foreground size-3 shrink-0" />
-          Unassigned
-        </button>
-        {users.map((u) => (
-          <button
-            key={u.id}
-            type="button"
-            onClick={() => {
-              onUpdate({ assigneeId: u.id });
-              onOpenChange(false);
-            }}
-            className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
-          >
-            <Check className={cn('size-3 shrink-0', task.assigneeId === u.id ? 'opacity-100' : 'opacity-0')} />
-            <Avatar size="sm" className="size-4 shrink-0">
-              <AvatarFallback className="text-[8px]">{initials(u.name)}</AvatarFallback>
-            </Avatar>
-            {u.name}
-          </button>
-        ))}
+      {/* Top-left of the trigger, not the right edge — this sits at the
+          far right of the badge row, so a right-aligned popover used to
+          overshoot the card's edge. */}
+      <PopoverContent className="w-44 p-1" align="start" side="bottom" onClick={(e) => e.stopPropagation()}>
+        {users.map((u) => {
+          const checked = task.assignees.some((a) => a.id === u.id);
+          return (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => toggle(u.id)}
+              className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
+            >
+              <Check className={cn('size-3 shrink-0', checked ? 'opacity-100' : 'opacity-0')} />
+              <Avatar size="sm" className="size-4 shrink-0">
+                <AvatarFallback className="text-[8px]">{initials(u.name)}</AvatarFallback>
+              </Avatar>
+              {u.name}
+            </button>
+          );
+        })}
+        {users.length === 0 && <p className="text-muted-foreground px-2 py-1.5 text-xs">No users yet.</p>}
       </PopoverContent>
     </Popover>
   );
@@ -935,7 +985,11 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
     const id = String(event.active.id);
     if (id.startsWith('filter:')) {
       const [, field, value] = id.split(':');
-      setActiveFilterDrag({ field, value, label: value });
+      // assigneeId's value is a user id, not display text — every other
+      // field's value is already a readable enum member — so only this
+      // one needs resolving to a name for the drag overlay.
+      const label = field === 'assigneeId' ? users.find((u) => u.id === value)?.name ?? value : value;
+      setActiveFilterDrag({ field, value, label });
       return;
     }
     if (board.columns.some((c) => c.id === id)) {
@@ -976,8 +1030,14 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
       const overTaskForFilter = tasks.find((t) => t.id === over.id);
       if (!overTaskForFilter) return;
       const [, field, value] = activeId.split(':');
-      if (field === 'assigneeId') await updateTask(overTaskForFilter.id, { assigneeId: value });
-      else await updateTask(overTaskForFilter.id, { [field]: value } as never);
+      // Dropping an assignee chip ADDS them to the task's assignee list
+      // (it can have several now) — every other field replaces its value.
+      if (field === 'assigneeId') {
+        const ids = overTaskForFilter.assignees.map((a) => a.id);
+        if (!ids.includes(value)) await updateTask(overTaskForFilter.id, { assigneeIds: [...ids, value] });
+      } else {
+        await updateTask(overTaskForFilter.id, { [field]: value } as never);
+      }
       return;
     }
 
@@ -1015,7 +1075,7 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
 
   const visibleTasks = tasks.filter((t) => {
     if (filters.priority && t.priority !== filters.priority) return false;
-    if (filters.assigneeId && t.assigneeId !== filters.assigneeId) return false;
+    if (filters.assigneeId && !t.assignees.some((a) => a.id === filters.assigneeId)) return false;
     if (filters.recurrence && t.recurrence !== filters.recurrence) return false;
     if (filters.overdueOnly && !(t.dueDate && !t.completed && new Date(t.dueDate) < new Date())) return false;
     return true;

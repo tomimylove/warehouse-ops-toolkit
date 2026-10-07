@@ -13,8 +13,7 @@ export interface Task {
   dueDate: string | null;
   priority: TaskPriority;
   recurrence: TaskRecurrence;
-  assigneeId: string | null;
-  assignee: { id: string; name: string } | null;
+  assignees: { id: string; name: string }[];
   completed: boolean;
   createdAt: string;
   updatedAt: string;

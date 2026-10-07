@@ -35,13 +35,13 @@ export const tasksApi = {
     dueDate?: string;
     priority?: TaskPriority;
     recurrence?: TaskRecurrence;
-    assigneeId?: string;
+    assigneeIds?: string[];
   }) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
   updateTask: (
     id: string,
     data: Partial<
       Pick<Task, 'title' | 'description' | 'columnId' | 'order' | 'dueDate' | 'priority' | 'recurrence' | 'completed'> & {
-        assigneeId: string | null;
+        assigneeIds: string[];
       }
     >,
   ) => request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
