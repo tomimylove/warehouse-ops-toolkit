@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, Check, ChevronDown, Flag, MoreHorizontal, Plus, Repeat, User } from 'lucide-react';
+import { Calendar, Check, ChevronDown, Flag, Layers, MoreHorizontal, Plus, Repeat, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,18 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/compon
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { tasksApi } from './api';
-import { AssigneePicker, DueDatePicker, PRIORITIES, PRIORITY_ICON_COLOR, PriorityPicker, RECURRENCES, RecurrencePicker, initials } from './taskMetaPickers';
+import {
+  AssigneePicker,
+  DueDatePicker,
+  EpicPicker,
+  OwnerPicker,
+  PRIORITIES,
+  PRIORITY_ICON_COLOR,
+  PriorityPicker,
+  RECURRENCES,
+  RecurrencePicker,
+  initials,
+} from './taskMetaPickers';
 import type { Board, Task, TaskPriority, TaskRecurrence } from './types';
 
 interface BoardViewProps {
@@ -350,6 +361,7 @@ function TaskCard({
   onAddSubtask,
   onUpdate,
   users,
+  epics,
 }: {
   task: Task;
   onOpen: () => void;
@@ -361,7 +373,9 @@ function TaskCard({
   onAddSubtask: (title: string) => Promise<void>;
   onUpdate: (data: Parameters<typeof tasksApi.updateTask>[1]) => void;
   users: { id: string; name: string }[];
+  epics: { id: string; title: string }[];
 }) {
+  const isEpic = task.type === 'EPIC';
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const stats = task.subtaskStats;
@@ -382,8 +396,14 @@ function TaskCard({
   return (
     <div>
       <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={onOpen} className="cursor-pointer touch-none">
-        <Card className="gap-0 py-0">
+        <Card className={cn('gap-0 py-0', isEpic && 'border-l-4 border-l-violet-500')}>
           <CardContent className="space-y-2 p-3 text-sm">
+            {isEpic && (
+              <div className="flex items-center gap-1 text-[10px] font-medium tracking-wide text-violet-600 uppercase dark:text-violet-400">
+                <Layers className="size-3" />
+                Epic
+              </div>
+            )}
             <div className="flex items-start gap-1.5">
               <button
                 type="button"
@@ -415,6 +435,10 @@ function TaskCard({
                     <Plus className="size-3.5" />
                     Add subtask
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onUpdate({ type: isEpic ? 'TASK' : 'EPIC' })}>
+                    <Layers className="size-3.5" />
+                    {isEpic ? 'Convert to task' : 'Convert to epic'}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -438,15 +462,48 @@ function TaskCard({
                 open={openPicker === 'recurrence'}
                 onOpenChange={(o) => setOpenPicker(o ? 'recurrence' : null)}
               />
-              <AssigneePicker
-                task={task}
-                users={users}
-                onUpdate={onUpdate}
-                className="ml-auto"
-                open={openPicker === 'assignee'}
-                onOpenChange={(o) => setOpenPicker(o ? 'assignee' : null)}
-              />
+              {!isEpic && (
+                <EpicPicker
+                  task={task}
+                  epics={epics}
+                  onUpdate={onUpdate}
+                  open={openPicker === 'epic'}
+                  onOpenChange={(o) => setOpenPicker(o ? 'epic' : null)}
+                />
+              )}
+              <div className="ml-auto flex items-center gap-1.5">
+                {isEpic && (
+                  <OwnerPicker
+                    task={task}
+                    users={users}
+                    onUpdate={onUpdate}
+                    open={openPicker === 'owner'}
+                    onOpenChange={(o) => setOpenPicker(o ? 'owner' : null)}
+                  />
+                )}
+                <AssigneePicker
+                  task={task}
+                  users={users}
+                  onUpdate={onUpdate}
+                  open={openPicker === 'assignee'}
+                  onOpenChange={(o) => setOpenPicker(o ? 'assignee' : null)}
+                />
+              </div>
             </div>
+
+            {isEpic && task.epicStats && task.epicStats.total > 0 && (
+              <div className="text-muted-foreground flex w-full items-center gap-1.5 pl-5 text-xs">
+                <div className="bg-muted h-1 flex-1 overflow-hidden rounded-full">
+                  <div
+                    className="h-full rounded-full bg-violet-500 transition-all"
+                    style={{ width: `${Math.round((task.epicStats.done / task.epicStats.total) * 100)}%` }}
+                  />
+                </div>
+                <span className="shrink-0">
+                  {task.epicStats.done}/{task.epicStats.total} tasks
+                </span>
+              </div>
+            )}
 
             {stats && (
               <button
@@ -705,12 +762,13 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
 
   async function updateTask(taskId: string, data: Parameters<typeof tasksApi.updateTask>[1]) {
     const updated = await tasksApi.updateTask(taskId, data);
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    // Merge, don't replace: the update response carries no progress stats.
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)));
     // A completion toggle can cascade to the parent task server-side
     // (points: all subtasks done -> parent done; any done -> parent moved
     // to In progress) — simplest to just re-sync from the server rather
     // than reimplement that logic on the client.
-    if (data.completed !== undefined) load();
+    if (data.completed !== undefined || data.epicId !== undefined || data.type !== undefined) load();
   }
 
   async function toggleExpand(taskId: string) {
@@ -834,6 +892,8 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
     await Promise.all(reordered.map((t, i) => tasksApi.updateTask(t.id, { order: i, columnId: targetColumnId })));
   }
 
+  const epics = tasks.filter((t) => t.type === 'EPIC').map((t) => ({ id: t.id, title: t.title }));
+
   const visibleTasks = tasks.filter((t) => {
     if (filters.priority && t.priority !== filters.priority) return false;
     if (filters.assigneeId && !t.assignees.some((a) => a.id === filters.assigneeId)) return false;
@@ -891,6 +951,7 @@ export function BoardView({ board, onOpenTask, onColumnsChanged }: BoardViewProp
                         onAddSubtask={(title) => addSubtask(task.id, title)}
                         onUpdate={(data) => updateTask(task.id, data)}
                         users={users}
+                        epics={epics}
                       />
                     ))}
                   </SortableContext>

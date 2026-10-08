@@ -1,5 +1,5 @@
 import { request } from '../../lib/rest-api-provider';
-import type { Board, Column, Project, Task, TaskActivity, TaskComment, TaskPriority, TaskRecurrence } from './types';
+import type { Board, Column, Project, Task, TaskActivity, TaskComment, TaskPriority, TaskRecurrence, TaskType } from './types';
 
 // Dedicated client, not the generic DataProvider — Tasks' routes are
 // nested (/projects/:id/boards) and include a non-CRUD one (/tasks/mine),
@@ -36,11 +36,15 @@ export const tasksApi = {
     priority?: TaskPriority;
     recurrence?: TaskRecurrence;
     assigneeIds?: string[];
+    type?: TaskType;
+    epicId?: string;
+    ownerId?: string;
+    sourceUrl?: string;
   }) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
   updateTask: (
     id: string,
     data: Partial<
-      Pick<Task, 'title' | 'description' | 'columnId' | 'order' | 'dueDate' | 'priority' | 'recurrence' | 'completed'> & {
+      Pick<Task, 'title' | 'description' | 'columnId' | 'order' | 'dueDate' | 'priority' | 'recurrence' | 'completed' | 'type' | 'epicId' | 'ownerId' | 'sourceUrl'> & {
         assigneeIds: string[];
       }
     >,

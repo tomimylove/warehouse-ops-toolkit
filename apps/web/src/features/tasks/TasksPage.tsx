@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CalendarDays, GanttChartSquare, KanbanSquare, List, Plus } from 'lucide-react';
+import { CalendarDays, GanttChartSquare, KanbanSquare, Plus, Table2 } from 'lucide-react';
 import { PageHeader, EmptyState, Button, Input } from '../../components/ui';
 import { cn } from '@/lib/utils';
 import {
@@ -17,22 +17,22 @@ import {
 } from '@/components/ui/breadcrumb';
 import { tasksApi } from './api';
 import { BoardView } from './BoardView';
-import { ListView } from './ListView';
+import { TableView } from './TableView';
 import { GanttView } from './GanttView';
 import { CalendarView } from './CalendarView';
 import { TaskDrawer } from './TaskDrawer';
 import type { Board, Project } from './types';
 
-type ViewMode = 'board' | 'list' | 'gantt' | 'calendar';
+type ViewMode = 'board' | 'table' | 'gantt' | 'calendar';
 
 const VIEW_OPTIONS: { value: ViewMode; label: string; icon: typeof KanbanSquare }[] = [
   { value: 'board', label: 'Board', icon: KanbanSquare },
-  { value: 'list', label: 'List', icon: List },
+  { value: 'table', label: 'Table', icon: Table2 },
   { value: 'gantt', label: 'Gantt', icon: GanttChartSquare },
   { value: 'calendar', label: 'Calendar', icon: CalendarDays },
 ];
 
-// Board/Gantt/Calendar are all scoped to the single active board; List
+// Board/Gantt/Calendar are all scoped to the single active board; Table
 // spans every board in the project instead, so this switcher lives here
 // (TasksPage) rather than inside BoardView.
 function ViewSwitcher({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
@@ -299,8 +299,8 @@ export function TasksPage() {
             <ViewSwitcher value={view} onChange={setView} />
 
             {/* Board tabs only make sense for the three single-board
-                views — List already spans every board at once. */}
-            {view !== 'list' && (
+                views — Table already spans every board at once. */}
+            {view !== 'table' && (
               <div className="flex items-center gap-2">
                 <DndContext sensors={boardSensors} collisionDetection={closestCenter} onDragEnd={handleBoardDragEnd}>
                   <SortableContext items={activeProject.boards.map((b) => b.id)} strategy={horizontalListSortingStrategy}>
@@ -326,9 +326,9 @@ export function TasksPage() {
             )}
           </div>
 
-          {view === 'list' && <ListView project={activeProject} onOpenTask={setOpenTaskId} />}
+          {view === 'table' && <TableView project={activeProject} onOpenTask={setOpenTaskId} />}
 
-          {view !== 'list' &&
+          {view !== 'table' &&
             (activeBoard ? (
               <>
                 {view === 'board' && (

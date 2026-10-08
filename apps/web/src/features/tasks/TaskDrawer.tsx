@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { formatDistanceToNow } from 'date-fns';
-import { Check } from 'lucide-react';
+import { Check, ExternalLink, Link2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -92,6 +92,7 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
   const [descriptionDirty, setDescriptionDirty] = useState(false);
   const [savingDescription, setSavingDescription] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [descriptionEditor, setDescriptionEditor] = useState<Editor | null>(null);
 
   useEffect(() => {
@@ -104,6 +105,7 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
       setTitle(t.title);
       setDescription(t.description ?? '');
       setDescriptionDirty(false);
+      setSourceUrl(t.sourceUrl ?? '');
       // The editor instance persists across tasks (the drawer stays
       // mounted while switching which card is open) — its content is only
       // the *initial* value on creation, so switching tasks needs this
@@ -134,6 +136,13 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
     } finally {
       setSavingDescription(false);
     }
+  }
+
+  async function saveSourceUrl() {
+    if (!task || sourceUrl.trim() === (task.sourceUrl ?? '')) return;
+    const updated = await tasksApi.updateTask(task.id, { sourceUrl: sourceUrl.trim() || null });
+    setTask((prev) => (prev ? { ...prev, ...updated } : prev));
+    onChanged();
   }
 
   async function addSubtask(e: React.FormEvent) {
@@ -186,6 +195,21 @@ export function TaskDrawer({ taskId, onOpenChange, onChanged }: TaskDrawerProps)
             </TabsContent>
 
             <TabsContent value="description" className="mt-3 flex min-h-0 flex-col gap-2 overflow-y-auto">
+              <div className="flex items-center gap-2">
+                <Link2 className="text-muted-foreground size-4 shrink-0" />
+                <Input
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  onBlur={saveSourceUrl}
+                  placeholder="Source link (where this came from)…"
+                  className="h-8 text-sm"
+                />
+                {task.sourceUrl && (
+                  <a href={task.sourceUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground shrink-0">
+                    <ExternalLink className="size-4" />
+                  </a>
+                )}
+              </div>
               <RichTextEditor
                 value={description}
                 onChange={(html) => {

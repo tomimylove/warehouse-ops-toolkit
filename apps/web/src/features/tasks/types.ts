@@ -1,5 +1,6 @@
 export type TaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 export type TaskRecurrence = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
+export type TaskType = 'TASK' | 'EPIC';
 
 export interface Task {
   id: string;
@@ -14,6 +15,12 @@ export interface Task {
   priority: TaskPriority;
   recurrence: TaskRecurrence;
   assignees: { id: string; name: string }[];
+  type: TaskType;
+  epicId: string | null;
+  epic: { id: string; title: string; ownerId: string | null } | null;
+  ownerId: string | null;
+  owner: { id: string; name: string } | null;
+  sourceUrl: string | null;
   completed: boolean;
   createdAt: string;
   updatedAt: string;
@@ -23,6 +30,8 @@ export interface Task {
   // them the way GET /tasks/:id does) — enough for the card's progress
   // bar/chevron without an N+1 fetch per card.
   subtaskStats?: { total: number; done: number } | null;
+  // Epic rows carry progress over their tasks (not subtasks).
+  epicStats?: { total: number; done: number } | null;
 }
 
 export interface TaskComment {

@@ -1,10 +1,10 @@
-import { Calendar, Check, Flag, Repeat, User } from 'lucide-react';
+import { Calendar, Check, Circle, Crown, Flag, Layers, Repeat, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as DatePicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import type { Task, TaskPriority, TaskRecurrence } from './types';
+import type { Column, Task, TaskPriority, TaskRecurrence } from './types';
 
 // Shared by every view that renders a task row/card (Board, List, Gantt,
 // Calendar) — one real set of quick-edit popovers instead of a copy per
@@ -188,12 +188,26 @@ export function AssigneePicker({
 
   const shown = task.assignees.slice(0, MAX_ASSIGNEE_AVATARS);
   const overflow = task.assignees.length - shown.length;
+  // No assignee of its own: the epic's owner is the effective responsible
+  // (specs/features/weekly-meeting.md), shown dimmed so it reads as
+  // inherited rather than assigned.
+  const inheritedOwner =
+    task.assignees.length === 0 && task.epic?.ownerId ? users.find((u) => u.id === task.epic!.ownerId) : undefined;
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <button type="button" className={cn('flex items-center', className)}>
-          {task.assignees.length === 0 ? (
+          {task.assignees.length === 0 && inheritedOwner ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Avatar size="sm" className="opacity-60 ring-2 ring-dashed ring-violet-400/60">
+                  <AvatarFallback className="text-[9px]">{initials(inheritedOwner.name)}</AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent>Epic owner: {inheritedOwner.name}</TooltipContent>
+            </Tooltip>
+          ) : task.assignees.length === 0 ? (
             <User className="text-muted-foreground/40 hover:text-muted-foreground size-4" />
           ) : (
             <div className="flex -space-x-1.5">
@@ -238,6 +252,180 @@ export function AssigneePicker({
           );
         })}
         {users.length === 0 && <p className="text-muted-foreground px-2 py-1.5 text-xs">No users yet.</p>}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Single-select owner of an epic — one accountable person, unlike the
+// multi-select assignee list.
+export function OwnerPicker({
+  task,
+  users,
+  onUpdate,
+  open,
+  onOpenChange,
+}: {
+  task: Task;
+  users: { id: string; name: string }[];
+  onUpdate: (data: { ownerId: string | null }) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <button type="button" className="flex items-center">
+          {task.owner ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Avatar size="sm" className="ring-2 ring-violet-400">
+                  <AvatarFallback className="text-[9px]">{initials(task.owner.name)}</AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent>Owner: {task.owner.name}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Crown className="text-muted-foreground/40 hover:text-muted-foreground size-4" />
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1" align="start" side="bottom" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={() => {
+            onUpdate({ ownerId: null });
+            onOpenChange(false);
+          }}
+          className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
+        >
+          <Check className={cn('size-3 shrink-0', !task.ownerId ? 'opacity-100' : 'opacity-0')} />
+          <Crown className="text-muted-foreground size-3 shrink-0" />
+          No owner
+        </button>
+        {users.map((u) => (
+          <button
+            key={u.id}
+            type="button"
+            onClick={() => {
+              onUpdate({ ownerId: u.id });
+              onOpenChange(false);
+            }}
+            className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
+          >
+            <Check className={cn('size-3 shrink-0', task.ownerId === u.id ? 'opacity-100' : 'opacity-0')} />
+            <Avatar size="sm" className="size-4 shrink-0">
+              <AvatarFallback className="text-[8px]">{initials(u.name)}</AvatarFallback>
+            </Avatar>
+            {u.name}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Which epic a task belongs to — only epics from the task's own board are
+// offered (the backend rejects cross-board links anyway).
+export function EpicPicker({
+  task,
+  epics,
+  onUpdate,
+  open,
+  onOpenChange,
+}: {
+  task: Task;
+  epics: { id: string; title: string }[];
+  onUpdate: (data: { epicId: string | null }) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (epics.length === 0 && !task.epicId) return null;
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <button
+          type="button"
+          className={cn(
+            'flex max-w-28 items-center gap-1 text-[10px]',
+            task.epic ? 'rounded bg-violet-500/15 px-1.5 py-0.5 text-violet-600 dark:text-violet-400' : 'text-muted-foreground/40 hover:text-muted-foreground',
+          )}
+        >
+          <Layers className="size-3.5 shrink-0" />
+          {task.epic && <span className="truncate">{task.epic.title}</span>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-1" align="start" side="bottom" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={() => {
+            onUpdate({ epicId: null });
+            onOpenChange(false);
+          }}
+          className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
+        >
+          <Check className={cn('size-3 shrink-0', !task.epicId ? 'opacity-100' : 'opacity-0')} />
+          No epic
+        </button>
+        {epics.map((e) => (
+          <button
+            key={e.id}
+            type="button"
+            onClick={() => {
+              onUpdate({ epicId: e.id });
+              onOpenChange(false);
+            }}
+            className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
+          >
+            <Check className={cn('size-3 shrink-0', task.epicId === e.id ? 'opacity-100' : 'opacity-0')} />
+            <Layers className="size-3 shrink-0 text-violet-500" />
+            <span className="truncate">{e.title}</span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Status = the board column the task sits in (To do / In progress / …).
+export function StatusPicker({
+  task,
+  columns,
+  onUpdate,
+  open,
+  onOpenChange,
+}: {
+  task: Task;
+  columns: Column[];
+  onUpdate: (data: { columnId: string }) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const current = columns.find((c) => c.id === task.columnId);
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <button type="button" className="hover:bg-accent flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs">
+          <Circle className="size-2.5 shrink-0" style={{ color: current?.color ?? '#64748b', fill: current?.color ?? '#64748b' }} />
+          {current?.name ?? 'No status'}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-44 p-1" align="start" side="bottom" onClick={(e) => e.stopPropagation()}>
+        {columns.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => {
+              onUpdate({ columnId: c.id });
+              onOpenChange(false);
+            }}
+            className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs"
+          >
+            <Check className={cn('size-3 shrink-0', task.columnId === c.id ? 'opacity-100' : 'opacity-0')} />
+            <Circle className="size-2.5 shrink-0" style={{ color: c.color ?? '#64748b', fill: c.color ?? '#64748b' }} />
+            {c.name}
+          </button>
+        ))}
       </PopoverContent>
     </Popover>
   );

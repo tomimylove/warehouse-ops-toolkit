@@ -29,7 +29,7 @@ are no longer separate top-level entries.
 |---|---|---|
 | Announcements | Simple | Rich text (Tiptap), list + create/edit/delete/pin, RBAC-gated. Comments/attachments/stories/widgets/EntityDrawer planned, not built yet |
 | Operations (HSE, Staff, Weekly meeting, Digital twin, Dashboards, Links) | High — Digital Twin especially, read its own `README.md` first once it exists | Placeholder routes. Weekly meeting is specced in `specs/features/weekly-meeting.md`, not built yet |
-| Tasks (replaces Projects + Planner) | High | Built — `Project → Board (tabs) → Column → Task`, Board/List/Gantt/Calendar views, drag-and-drop, multiple assignees, priorities, recurrence, task chat and timeline. Epics and Table view are next (see Weekly meeting spec) |
+| Tasks (replaces Projects + Planner) | High | Built — `Project → Board (tabs) → Column → Task`, Board/List/Gantt/Calendar views, drag-and-drop, multiple assignees, priorities, recurrence, task chat and timeline. Epics (with owner-scoped permissions) and Table view built; Weekly meeting stages 2-4 next (see its spec) |
 | Knowledge base | Medium | Placeholder route only |
 | Profile (personal hub — my tasks, Handover, activity) | Medium | Placeholder route only |
 | Admin | Medium | Placeholder route only |
