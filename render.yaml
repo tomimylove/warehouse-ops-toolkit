@@ -5,9 +5,15 @@ services:
     name: warehouse-ops-api
     runtime: node
     plan: free
-    # Region is fixed at creation on Render (no edit option once the
-    # service exists) — frankfurt is what's actually deployed.
-    region: frankfurt
+    # Was frankfurt — the Supabase database lives in ap-northeast-1
+    # (Tokyo), so every query paid a Frankfurt<->Tokyo round trip on top
+    # of Render's own free-plan cold start. Singapore is the closest
+    # Render region to Tokyo (Render has no Japan region) and cuts that
+    # cross-continental hop way down. Region is fixed at creation — a
+    # Blueprint sync of this file will NOT move the existing service;
+    # applying this for real means standing up a new Render service in
+    # Singapore and retiring the Frankfurt one (see deploy notes).
+    region: singapore
     buildCommand: npm install && npx prisma generate --schema=prisma/schema.prisma && npm run build:api
     startCommand: node apps/api/dist/main.js
     # Skip rebuilding this service for pushes that only touch the frontend
