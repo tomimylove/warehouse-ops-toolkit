@@ -1,5 +1,5 @@
 import { IsArray, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { TaskPriority, TaskRecurrence } from '@prisma/client';
+import { TaskPriority, TaskRecurrence, TaskType } from '@prisma/client';
 
 export class CreateTaskDto {
   @IsString()
@@ -41,4 +41,21 @@ export class CreateTaskDto {
   @IsArray()
   @IsString({ each: true })
   assigneeIds?: string[];
+
+  @IsOptional()
+  @IsEnum(TaskType)
+  type?: TaskType;
+
+  @IsOptional()
+  @IsString()
+  epicId?: string;
+
+  @IsOptional()
+  @IsString()
+  ownerId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  sourceUrl?: string;
 }

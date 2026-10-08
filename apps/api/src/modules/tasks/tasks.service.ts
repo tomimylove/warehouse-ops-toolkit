@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Task, TaskRecurrence } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -7,6 +7,9 @@ import { CreateTaskCommentDto } from './dto/create-task-comment.dto';
 
 const include = {
   assignees: { select: { id: true, name: true } },
+  owner: { select: { id: true, name: true } },
+  // ownerId is needed by the controller to decide owner-scoped permissions.
+  epic: { select: { id: true, title: true, ownerId: true } },
 } as const;
 
 type TaskWithAssignees = Task & { assignees: { id: string; name: string }[] };
@@ -39,11 +42,13 @@ export class TasksService {
       // just enough (completed) to show the card's progress bar/chevron.
       // The actual subtask rows are fetched lazily (GET /tasks/:id) on
       // expand, so this stays a flat list, not N+1 queries.
-      include: { ...include, subtasks: { select: { completed: true } } },
+      include: { ...include, subtasks: { select: { completed: true } }, epicTasks: { select: { completed: true } } },
     });
-    return tasks.map(({ subtasks, ...task }) => ({
+    return tasks.map(({ subtasks, epicTasks, ...task }) => ({
       ...task,
       subtaskStats: subtasks.length > 0 ? { total: subtasks.length, done: subtasks.filter((s) => s.completed).length } : null,
+      // Epic progress is counted over its tasks (not subtasks).
+      epicStats: task.type === 'EPIC' ? { total: epicTasks.length, done: epicTasks.filter((t) => t.completed).length } : null,
     }));
   }
 
@@ -75,6 +80,8 @@ export class TasksService {
       if (!board) throw new NotFoundException(`Board ${dto.boardId} not found`);
     }
 
+    await this.assertEpicLink(dto.type ?? 'TASK', dto.epicId, dto.boardId);
+
     const siblingCount = dto.boardId
       ? await this.prisma.task.count({ where: { boardId: dto.boardId, columnId: dto.columnId ?? null } })
       : 0;
@@ -90,6 +97,10 @@ export class TasksService {
         priority: dto.priority,
         recurrence: dto.recurrence,
         assignees: dto.assigneeIds?.length ? { connect: dto.assigneeIds.map((id) => ({ id })) } : undefined,
+        type: dto.type,
+        epicId: dto.epicId,
+        ownerId: dto.ownerId,
+        sourceUrl: dto.sourceUrl,
         order: siblingCount,
         authorId,
       },
@@ -108,6 +119,16 @@ export class TasksService {
   async update(id: string, dto: UpdateTaskDto, actorId: string) {
     const before = await this.get(id);
     const { assigneeIds, dueDate, ...rest } = dto;
+
+    const nextType = dto.type ?? before.type;
+    if (before.type === 'EPIC' && nextType === 'TASK') {
+      const children = await this.prisma.task.count({ where: { epicId: id } });
+      if (children > 0) throw new BadRequestException('This epic still has tasks — move or delete them first');
+    }
+    // An epic can't itself sit inside another epic.
+    const nextEpicId = nextType === 'EPIC' ? null : dto.epicId !== undefined ? dto.epicId : before.epicId;
+    await this.assertEpicLink(nextType, nextEpicId ?? undefined, before.boardId ?? undefined);
+    if (nextType === 'EPIC') rest.epicId = null;
 
     const task = await this.prisma.task.update({
       where: { id },
@@ -137,6 +158,16 @@ export class TasksService {
     }
 
     return task;
+  }
+
+  // An epic's tasks must sit on the same board as the epic, the target must
+  // really be an EPIC, and an epic can't be linked into another epic.
+  private async assertEpicLink(type: 'TASK' | 'EPIC', epicId: string | undefined, boardId: string | undefined) {
+    if (!epicId) return;
+    if (type === 'EPIC') throw new BadRequestException('An epic cannot belong to another epic');
+    const epic = await this.prisma.task.findUnique({ where: { id: epicId } });
+    if (!epic || epic.type !== 'EPIC') throw new BadRequestException('epicId must point to an epic');
+    if (!boardId || epic.boardId !== boardId) throw new BadRequestException('A task must be on the same board as its epic');
   }
 
   // All subtasks done -> parent marked completed; any one done (while the
@@ -290,6 +321,25 @@ export class TasksService {
         }
       }
     }
+    if (dto.ownerId !== undefined && dto.ownerId !== before.ownerId) {
+      if (dto.ownerId === null) {
+        messages.push('Epic owner removed');
+      } else {
+        const owner = await this.prisma.user.findUnique({ where: { id: dto.ownerId } });
+        messages.push(`Epic owner set to ${owner?.name ?? 'someone'}`);
+      }
+    }
+    if (dto.epicId !== undefined && dto.epicId !== before.epicId) {
+      if (dto.epicId === null) {
+        messages.push('Removed from epic');
+      } else {
+        const epic = await this.prisma.task.findUnique({ where: { id: dto.epicId } });
+        messages.push(`Added to epic ${epic?.title ?? ''}`.trim());
+      }
+    }
+    if (dto.type !== undefined && dto.type !== before.type) {
+      messages.push(dto.type === 'EPIC' ? 'Converted to an epic' : 'Converted to a task');
+    }
     if (dto.dueDate !== undefined) messages.push('Due date changed');
     if (dto.completed !== undefined && dto.completed !== before.completed) {
       messages.push(dto.completed ? 'Marked as done' : 'Reopened');
@@ -317,6 +367,9 @@ export class TasksService {
         priority: task.priority,
         recurrence: task.recurrence,
         assignees: task.assignees.length ? { connect: task.assignees.map((a) => ({ id: a.id })) } : undefined,
+        type: task.type,
+        epicId: task.epicId,
+        ownerId: task.ownerId,
         dueDate: nextDue,
       },
     });

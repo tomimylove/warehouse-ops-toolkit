@@ -163,6 +163,7 @@ model User {
   announcementsAuthored Announcement[]
   announcementComments  AnnouncementComment[]
   tasksAssigned         Task[]                @relation("TaskAssignees")
+  epicsOwned            Task[]                @relation("TaskOwner")
   taskComments          TaskComment[]
   taskActivity          TaskActivityLog[]
 
@@ -254,6 +255,13 @@ enum TaskPriority {
 // (TasksService.maybeRecur, fired when a task moves into the board's Done
 // column) — no scheduler/cron, and no stored RRULE, since the only thing
 // that needs to repeat here is "a new copy with the date pushed forward".
+enum TaskType {
+  TASK
+  EPIC
+
+  @@map("TaskType")
+}
+
 enum TaskRecurrence {
   NONE
   DAILY
@@ -289,6 +297,20 @@ model Task {
   // Many-to-many — a task can have several assignees now (implicit join
   // table, Prisma-managed); replaced the old single assigneeId FK.
   assignees   User[]            @relation("TaskAssignees")
+  // Epic > Task > Subtask (specs/features/weekly-meeting.md). An epic is a
+  // Task row of type EPIC on a board; its tasks sit on that same board and
+  // point back at it via epicId. Deleting an epic detaches its tasks
+  // rather than deleting them.
+  type        TaskType          @default(TASK)
+  epicId      String?
+  epic        Task?             @relation("EpicTasks", fields: [epicId], references: [id], onDelete: SetNull)
+  epicTasks   Task[]            @relation("EpicTasks")
+  // Epic owner — one accountable user. With an owner set, the epic's tasks
+  // don't need their own assignee (the owner is the effective responsible).
+  ownerId     String?
+  owner       User?             @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  // Optional link to where the work originated.
+  sourceUrl   String?
   comments    TaskComment[]
   activity    TaskActivityLog[]
   createdAt   DateTime          @default(now())

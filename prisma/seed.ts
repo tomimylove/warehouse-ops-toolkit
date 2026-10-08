@@ -25,6 +25,11 @@ const ALL_PERMISSIONS = [
   'tasks:create',
   'tasks:edit',
   'tasks:delete',
+  // Owner-scoped: only apply inside an epic the user owns.
+  'tasks:epic-owner.close-tasks',
+  'tasks:epic-owner.edit-tasks',
+  'tasks:epic-owner.reassign',
+  'tasks:epic-owner.delete-epic',
   'knowledge-base:view',
   'profile:view',
   'admin:view',
@@ -40,7 +45,17 @@ const ALL_PERMISSIONS = [
 // and tasks:delete are NOT granted by default — editing/deleting your own
 // task never needs them (TasksController checks authorship first), they
 // only gate touching someone else's.
-const DEFAULT_ROLE_PERMISSIONS = ['announcements:view', 'tasks:view', 'tasks:create', 'profile:view'];
+const DEFAULT_ROLE_PERMISSIONS = [
+  'announcements:view',
+  'tasks:view',
+  'tasks:create',
+  'profile:view',
+  // Epic owners can manage tasks inside their own epic; deleting the epic
+  // itself is deliberately NOT granted by default.
+  'tasks:epic-owner.close-tasks',
+  'tasks:epic-owner.edit-tasks',
+  'tasks:epic-owner.reassign',
+];
 
 async function main() {
   const admin = await prisma.role.upsert({

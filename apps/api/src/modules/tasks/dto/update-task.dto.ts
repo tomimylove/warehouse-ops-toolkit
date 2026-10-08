@@ -1,5 +1,5 @@
 import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
-import { TaskPriority, TaskRecurrence } from '@prisma/client';
+import { TaskPriority, TaskRecurrence, TaskType } from '@prisma/client';
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -42,4 +42,21 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsBoolean()
   completed?: boolean;
+
+  @IsOptional()
+  @IsEnum(TaskType)
+  type?: TaskType;
+
+  // null detaches the task from its epic / clears the owner / clears the
+  // link — same "explicit null clears" convention as elsewhere, so these
+  // can't use @IsString (which would reject null), only @IsOptional.
+  @IsOptional()
+  epicId?: string | null;
+
+  @IsOptional()
+  ownerId?: string | null;
+
+  @IsOptional()
+  @MaxLength(2000)
+  sourceUrl?: string | null;
 }
